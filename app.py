@@ -800,9 +800,26 @@ def api_import_data():
         # Leer el archivo Excel cargado
         imported_df = pd.read_excel(file)
         
-        # Validar que tenga las columnas esperadas
-        required_columns = ['asig_codigo', 'asig_nombre', 'psec_codigo', 'pgru_codigo', 
-                          'sdia_descripcion', 'sper_hora_ini', 'sper_hora_fin', 'camp_campus']
+        # Validar que tenga las columnas esperadas (soporta ambos formatos)
+        # Formato nuevo: CODIGO CURSO, NOMBRE CURSO, SECCION, GRUPO, DIA, HORA INICIO, HORA FIN, CAMPUS
+        # Formato antiguo: asig_codigo, asig_nombre, psec_codigo, pgru_codigo, sdia_descripcion, sper_hora_ini, sper_hora_fin, camp_campus
+        
+        has_new_format = 'CODIGO CURSO' in imported_df.columns
+        has_old_format = 'asig_codigo' in imported_df.columns
+        
+        if not has_new_format and not has_old_format:
+            return jsonify({
+                'success': False, 
+                'error': 'El archivo no tiene el formato correcto. Debe tener columnas: CODIGO CURSO, NOMBRE CURSO, SECCION, GRUPO, DIA, HORA INICIO, HORA FIN, CAMPUS (nuevo formato) o asig_codigo, asig_nombre, psec_codigo, pgru_codigo, sdia_descripcion, sper_hora_ini, sper_hora_fin, camp_campus (formato antiguo)'
+            }), 400
+        
+        # Validar columnas según el formato detectado
+        if has_new_format:
+            required_columns = ['CODIGO CURSO', 'NOMBRE CURSO', 'SECCION', 'GRUPO', 
+                              'DIA', 'HORA INICIO', 'HORA FIN', 'CAMPUS']
+        else:
+            required_columns = ['asig_codigo', 'asig_nombre', 'psec_codigo', 'pgru_codigo', 
+                              'sdia_descripcion', 'sper_hora_ini', 'sper_hora_fin', 'camp_campus']
         
         missing_columns = [col for col in required_columns if col not in imported_df.columns]
         if missing_columns:
