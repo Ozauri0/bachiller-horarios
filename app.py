@@ -4,8 +4,29 @@ from itertools import product
 import os
 import json
 from io import BytesIO
+import hashlib
 
 app = Flask(__name__)
+
+# Cache busting: genera hash de archivos estáticos para forzar actualización en hotfixes
+def get_file_hash(filename):
+    """Genera hash MD5 del archivo para cache busting en producción"""
+    filepath = os.path.join(app.static_folder, filename)
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, 'rb') as f:
+                return hashlib.md5(f.read()).hexdigest()[:8]
+        except:
+            return 'dev'
+    return 'dev'
+
+@app.context_processor
+def inject_file_versions():
+    """Inyecta versiones de archivos estáticos en todas las plantillas"""
+    return {
+        'css_v': get_file_hash('styles.css'),
+        'js_v': get_file_hash('app.js')
+    }
 
 # Cargar datos desde consolidado.xlsx
 def load_consolidado():
