@@ -49,13 +49,13 @@ async function saveConfig() {
         const data = await response.json();
         
         if (data.success) {
-            showAlert('Configuración guardada correctamente en el servidor');
+            showToast('Configuración guardada correctamente', 'success');
         } else {
-            showAlert('Error al guardar configuración: ' + (data.error || 'desconocido'));
+            showToast('Error al guardar configuración: ' + (data.error || 'desconocido'), 'error');
         }
     } catch (error) {
         console.error('Error guardando configuración:', error);
-        showAlert('Error al guardar configuración en el servidor');
+        showToast('Error al guardar configuración en el servidor', 'error');
     }
 }
 
@@ -149,7 +149,7 @@ function addToponConfig() {
     loadBach1121Schedules(); // Recargar select para quitar la opción ya agregada
     updateToponesList();
     
-    showAlert(`Topón agregado: ${horario.display}`);
+    showToast(`Topón agregado: ${horario.display}`, 'success');
 }
 
 // Eliminar topón configurado
@@ -157,6 +157,7 @@ function removeTopon(key) {
     delete toponesConfigs[key];
     loadBach1121Schedules();
     updateToponesList();
+    showToast('Topón eliminado', 'info');
 }
 
 // Actualizar lista de topones configurados
@@ -288,13 +289,14 @@ function addGroupConfig() {
     sectionSelect.innerHTML = '<option value="">Primero selecciona un curso...</option>';
     document.getElementById('configGroupsContainer').innerHTML = '<span class="empty-message">Selecciona curso y sección</span>';
     
-    showAlert(`Configuración agregada: ${courseCode} sección ${sectionCode} con grupos ${groups.join(', ')}`);
+    showToast(`Configuración agregada: ${courseCode} sección ${sectionCode} con grupos ${groups.join(', ')}`, 'success');
 }
 
 // Eliminar configuración
 function removeGroupConfig(configKey) {
     delete groupConfigs[configKey];
     updateConfigList();
+    showToast('Configuración eliminada', 'info');
 }
 
 // Actualizar lista de configuraciones
@@ -888,6 +890,38 @@ function getCampusShort(campus) {
 }
 
 // Mostrar alertas
+// Sistema de notificaciones toast
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+    toast.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-message">${message}</span>`;
+    
+    container.appendChild(toast);
+    
+    // Forzar reflow para que la animación funcione
+    toast.offsetHeight;
+    
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 3000);
+}
+
 function showAlert(message) {
     const alertBox = document.getElementById('alertBox');
     const alertMessage = document.getElementById('alertMessage');
@@ -983,6 +1017,7 @@ function deleteRow(index) {
     if (confirm('¿Estás seguro de eliminar este registro?')) {
         excelData.splice(index, 1);
         displayDataTable();
+        showToast('Registro eliminado', 'info');
     }
 }
 
@@ -1011,6 +1046,7 @@ function addNewRow() {
     
     excelData.push(newRow);
     displayDataTable();
+    showToast('Nuevo registro agregado', 'success');
 }
 
 // Guardar cambios en el Excel
@@ -1027,15 +1063,15 @@ async function saveExcelData() {
         const result = await response.json();
         
         if (result.success) {
-            showAlert('✅ Datos guardados correctamente en consolidado.xlsx');
-            // Recargar la lista de cursos en la pestaña principal
-            location.reload();
+            showToast('Datos guardados correctamente en consolidado.xlsx', 'success');
+            // Recargar la lista de cursos en la pestaña principal después del toast
+            setTimeout(() => location.reload(), 1500);
         } else {
-            showAlert('❌ Error guardando datos: ' + result.error);
+            showToast('Error guardando datos: ' + result.error, 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showAlert('❌ Error guardando datos en el servidor');
+        showToast('Error guardando datos en el servidor', 'error');
     }
 }
 
@@ -1067,14 +1103,14 @@ async function importData(event) {
         const result = await response.json();
         
         if (result.success) {
-            showAlert('✅ Archivo importado correctamente');
+            showToast('Archivo importado correctamente', 'success');
             await loadExcelData();
         } else {
-            showAlert('❌ Error importando: ' + result.error);
+            showToast('Error importando: ' + result.error, 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        showAlert('❌ Error importando archivo');
+        showToast('Error importando archivo', 'error');
     }
     
     // Limpiar input

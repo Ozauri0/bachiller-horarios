@@ -2,11 +2,11 @@
   "groupConfigs": {
     "CES1159_1": {
       "course": "CES1159",
-      "section": 1,
       "groups": [
         0,
         1
-      ]
+      ],
+      "section": 1
     },
     "CES1159_2": {
       "course": "CES1159",
