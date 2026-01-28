@@ -274,12 +274,24 @@ function addGroupConfig() {
         return;
     }
     
-    // Clave única: curso_sección
-    const configKey = `${courseCode}_${sectionCode}`;
+    // Ordenar grupos para consistencia
+    groups.sort((a, b) => a - b);
+    
+    // Clave única: curso_sección_grupos (ej: BIO1154_1_0-1)
+    const groupsKey = groups.join('-');
+    const configKey = `${courseCode}_${sectionCode}_${groupsKey}`;
+    
+    // Verificar si ya existe esta combinación
+    if (groupConfigs[configKey]) {
+        showAlert(`Esta combinación ya existe: ${courseCode} sección ${sectionCode} grupos ${groups.join(', ')}`);
+        return;
+    }
+    
     groupConfigs[configKey] = {
         course: courseCode,
         section: parseInt(sectionCode),
-        groups: groups
+        groups: groups,
+        display: `${courseCode} Sec${sectionCode} Grupos ${groups.join('+')}`
     };
     
     updateConfigList();
@@ -289,7 +301,7 @@ function addGroupConfig() {
     sectionSelect.innerHTML = '<option value="">Primero selecciona un curso...</option>';
     document.getElementById('configGroupsContainer').innerHTML = '<span class="empty-message">Selecciona curso y sección</span>';
     
-    showToast(`Configuración agregada: ${courseCode} sección ${sectionCode} con grupos ${groups.join(', ')}`, 'success');
+    showToast(`Configuración agregada: ${courseCode} sección ${sectionCode} grupos ${groups.join('+')}`, 'success');
 }
 
 // Eliminar configuración
@@ -309,21 +321,41 @@ function updateConfigList() {
         return;
     }
     
-    container.innerHTML = keys.map(configKey => {
+    // Agrupar por curso para mejor visualización
+    const groupedConfigs = {};
+    keys.forEach(configKey => {
         const config = groupConfigs[configKey];
-        return `
-            <div class="config-item">
-                <div class="config-item-info">
-                    <span class="config-item-course">${config.course}</span>
-                    <span class="config-item-section">Sección ${config.section}</span>
-                    <div class="config-item-groups">
-                        Grupos: ${config.groups.map(g => `<span>Grupo ${g}</span>`).join('')}
+        const courseKey = config.course;
+        if (!groupedConfigs[courseKey]) {
+            groupedConfigs[courseKey] = [];
+        }
+        groupedConfigs[courseKey].push({ key: configKey, config });
+    });
+    
+    let html = '';
+    Object.keys(groupedConfigs).sort().forEach(courseKey => {
+        const courseConfigs = groupedConfigs[courseKey];
+        html += `<div class="course-config-group">
+            <h4 class="course-title">${courseKey}</h4>`;
+        
+        courseConfigs.forEach(({ key, config }) => {
+            html += `
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <span class="config-item-section">Sección ${config.section}</span>
+                        <div class="config-item-groups">
+                            Grupos: ${config.groups.map(g => `<span class="group-badge">Grupo ${g}</span>`).join('')}
+                        </div>
                     </div>
+                    <button class="btn-remove-config" onclick="removeGroupConfig('${key}')">Eliminar</button>
                 </div>
-                <button class="btn-remove-config" onclick="removeGroupConfig('${configKey}')">Eliminar</button>
-            </div>
-        `;
-    }).join('');
+            `;
+        });
+        
+        html += `</div>`;
+    });
+    
+    container.innerHTML = html;
 }
 
 // Cambiar pestaña

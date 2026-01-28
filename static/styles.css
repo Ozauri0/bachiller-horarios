@@ -1042,6 +1042,44 @@ header h1 {
     font-size: 0.8rem;
 }
 
+/* Estilos para configuraciones agrupadas por curso */
+.course-config-group {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: var(--bg-hover);
+    border-radius: 12px;
+    border-left: 4px solid var(--primary);
+}
+
+.course-title {
+    color: var(--primary-light);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.course-config-group .config-item {
+    margin-bottom: 8px;
+    background: var(--bg-card);
+}
+
+.course-config-group .config-item:last-child {
+    margin-bottom: 0;
+}
+
+.group-badge {
+    background: var(--success) !important;
+    color: white !important;
+    padding: 3px 8px !important;
+    border-radius: 5px !important;
+    margin-right: 4px !important;
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+    display: inline-block;
+}
+
 .btn-remove-config {
     background: var(--danger);
     border: none;

@@ -10,11 +10,29 @@
     },
     "CES1159_2": {
       "course": "CES1159",
-      "section": 2,
       "groups": [
         0,
         2
-      ]
+      ],
+      "section": 2
+    },
+    "BIO1155_1_0-1": {
+      "course": "BIO1155",
+      "section": 1,
+      "groups": [
+        0,
+        1
+      ],
+      "display": "BIO1155 Sec1 Grupos 0+1"
+    },
+    "BIO1155_1_0-2": {
+      "course": "BIO1155",
+      "section": 1,
+      "groups": [
+        0,
+        2
+      ],
+      "display": "BIO1155 Sec1 Grupos 0+2"
     }
   },
   "toponesConfigs": {}

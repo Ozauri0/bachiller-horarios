@@ -411,7 +411,7 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
     print(f"DEBUG: group_configs recibido: {group_configs}")
     print(f"DEBUG: valid_topones recibido: {valid_topones}")
     
-    # Convertir formato de configuración: agrupar por curso
+    # Convertir formato de configuración: agrupar por curso, permitiendo múltiples configs por sección
     course_group_configs = {}
     for key, config in group_configs.items():
         course_code = config.get('course')
@@ -423,8 +423,11 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
         if course_code and section is not None and len(groups) >= 2:
             if course_code not in course_group_configs:
                 course_group_configs[course_code] = {}
-            # Asegurar que section sea int
-            course_group_configs[course_code][int(section)] = [int(g) for g in groups]
+            if int(section) not in course_group_configs[course_code]:
+                course_group_configs[course_code][int(section)] = []
+            
+            # Agregar esta combinación de grupos a la sección
+            course_group_configs[course_code][int(section)].append([int(g) for g in groups])
     
     print(f"DEBUG: course_group_configs procesado: {course_group_configs}")
     
@@ -455,25 +458,29 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
                 
                 # Si esta sección tiene configuración de grupos combinados
                 if psec_int in section_configs:
-                    required_groups = section_configs[psec_int]
-                    print(f"DEBUG: Sección {psec_int} TIENE config, required_groups={required_groups}")
-                    # Verificar si todos los grupos requeridos están disponibles
-                    if all(g in available_groups for g in required_groups):
-                        # Combinar los bloques de todos los grupos requeridos
-                        combined_blocks = []
-                        for g in required_groups:
-                            blocks = get_section_blocks(df, course_code, psec, g)
-                            combined_blocks.extend(blocks)
-                        
-                        if combined_blocks:
-                            print(f"DEBUG: Agregando combinación {course_code} sec {psec_int} grupos {required_groups}")
-                            section_options.append({
-                                'course': course_code,
-                                'section': psec,
-                                'group': '+'.join(map(str, required_groups)),
-                                'is_combined': True,
-                                'blocks': combined_blocks
-                            })
+                    required_groups_list = section_configs[psec_int]  # Lista de listas de grupos
+                    print(f"DEBUG: Sección {psec_int} TIENE configs, required_groups_list={required_groups_list}")
+                    
+                    # Agregar cada configuración como una opción separada
+                    for required_groups in required_groups_list:
+                        # Verificar si todos los grupos requeridos están disponibles
+                        if all(g in available_groups for g in required_groups):
+                            # Combinar los bloques de todos los grupos requeridos
+                            combined_blocks = []
+                            for g in required_groups:
+                                blocks = get_section_blocks(df, course_code, psec, g)
+                                combined_blocks.extend(blocks)
+                            
+                            if combined_blocks:
+                                groups_display = '+'.join(map(str, required_groups))
+                                print(f"DEBUG: Agregando combinación {course_code} sec {psec_int} grupos {required_groups}")
+                                section_options.append({
+                                    'course': course_code,
+                                    'section': psec,
+                                    'group': groups_display,
+                                    'is_combined': True,
+                                    'blocks': combined_blocks
+                                })
                 else:
                     print(f"DEBUG: Sección {psec_int} NO tiene config, usando grupos individuales")
                     # Esta sección no tiene config, usar grupos individuales
