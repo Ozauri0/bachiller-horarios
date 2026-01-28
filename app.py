@@ -80,6 +80,26 @@ def load_consolidado():
     df['sdia_descripcion'] = df['sdia_descripcion'].astype(str).str.strip()
     df['camp_campus'] = df['camp_campus'].astype(str).str.strip().str.upper()
     
+    # Normalizar días de la semana (capitalizar primera letra, resto minúscula)
+    def normalize_day(day):
+        if pd.isna(day):
+            return 'Lunes'
+        day = str(day).strip().lower()
+        day_mapping = {
+            'lunes': 'Lunes',
+            'martes': 'Martes',
+            'miercoles': 'Miercoles',
+            'miércoles': 'Miercoles',
+            'jueves': 'Jueves',
+            'viernes': 'Viernes',
+            'sabado': 'Sabado',
+            'sábado': 'Sabado',
+            'domingo': 'Domingo'
+        }
+        return day_mapping.get(day, day.capitalize())
+    
+    df['sdia_descripcion'] = df['sdia_descripcion'].apply(normalize_day)
+    
     # Convertir horas a formato string HH:MM si vienen como datetime
     def format_time(time_val):
         if pd.isna(time_val):
@@ -123,7 +143,11 @@ def time_to_minutes(time_str):
 # Verificar si dos bloques de tiempo se solapan
 def blocks_overlap(block1, block2):
     """Verifica si dos bloques de horario se solapan"""
-    if block1['dia'] != block2['dia']:
+    # Normalizar días para comparación (case-insensitive)
+    day1 = str(block1['dia']).strip().upper()
+    day2 = str(block2['dia']).strip().upper()
+    
+    if day1 != day2:
         return False
     
     start1 = time_to_minutes(block1['hora_ini'])
@@ -142,7 +166,11 @@ def check_travel_time(block1, block2):
     - Virtual no tiene restricción
     Retorna: (es_valido, mensaje_error o None)
     """
-    if block1['dia'] != block2['dia']:
+    # Normalizar días para comparación (case-insensitive)
+    day1 = str(block1['dia']).strip().upper()
+    day2 = str(block2['dia']).strip().upper()
+    
+    if day1 != day2:
         return True, None
     
     campus1 = normalize_campus(block1['campus'])
