@@ -1,0 +1,15 @@
+services:
+  bachiindexer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # ports:              # <--- Comentado por seguridad
+    #   - "5000:5000"     # <--- Para pruebas locales si es necesario
+    container_name: bachiindexer-uct  # <--- Nombre fijo para configurar en nginx
+    restart: always
+    networks:
+      - red-internet      # <--- Conectado a la red de Nginx
+
+networks:
+  red-internet:
+    external: true

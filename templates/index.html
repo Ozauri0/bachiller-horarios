@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Horarios UCT</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎓 Generador de Horarios</h1>
+            <p class="subtitle">Selecciona hasta 6 cursos para generar tu horario óptimo</p>
+        </header>
+
+        <!-- Pestañas de navegación -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('horarios')">📅 Horarios</button>
+            <button class="tab-btn" onclick="showTab('configuracion')">⚙️ Configuración</button>
+            <button class="tab-btn" onclick="showTab('datos')">📊 Datos</button>
+        </div>
+
+        <!-- Contenido de pestañas -->
+        <div id="tab-horarios" class="tab-content active">
+            <main>
+            <div class="panel-container">
+                <!-- Panel de selección de cursos -->
+                <section class="panel courses-panel">
+                    <h2>📚 Cursos Disponibles</h2>
+                    <div class="search-container">
+                        <input type="text" id="searchInput" placeholder="Buscar por sigla o nombre..." class="search-input">
+                    </div>
+                    <div class="courses-list" id="coursesList">
+                        {% for course in courses %}
+                        <div class="course-item" data-code="{{ course.asig_codigo }}" data-name="{{ course.asig_nombre }}">
+                            <div class="course-info">
+                                <span class="course-code">{{ course.asig_codigo }}</span>
+                                <span class="course-name">{{ course.asig_nombre }}</span>
+                            </div>
+                            <button class="btn-add" onclick="addCourse('{{ course.asig_codigo }}', '{{ course.asig_nombre }}')">+</button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <!-- Panel de cursos seleccionados -->
+                <section class="panel selected-panel">
+                    <h2>✅ Cursos Seleccionados <span id="selectedCount">(0/6)</span></h2>
+                    <div class="selected-list" id="selectedList">
+                        <p class="empty-message">No hay cursos seleccionados</p>
+                    </div>
+                    <button class="btn-generate" id="generateBtn" onclick="generateSchedules()" disabled>
+                        🚀 Generar Horarios
+                    </button>
+                </section>
+            </div>
+
+            <!-- Panel de resultados -->
+            <section class="panel results-panel" id="resultsPanel" style="display: none;">
+                <div class="results-header">
+                    <h2>📅 Horarios Generados</h2>
+                    <div class="schedule-navigation">
+                        <button class="btn-nav" id="prevBtn" onclick="prevSchedule()" disabled>◀ Anterior</button>
+                        <span class="schedule-counter" id="scheduleCounter">1 / 1</span>
+                        <button class="btn-nav" id="nextBtn" onclick="nextSchedule()" disabled>Siguiente ▶</button>
+                    </div>
+                </div>
+                
+                <div class="schedule-info" id="scheduleInfo"></div>
+                
+                <div class="schedule-container">
+                    <div class="schedule-grid" id="scheduleGrid">
+                        <!-- Horario se genera dinámicamente -->
+                    </div>
+                </div>
+
+                <div class="schedule-legend" id="scheduleLegend"></div>
+            </section>
+
+            <!-- Mensaje de error/advertencia -->
+            <div class="alert" id="alertBox" style="display: none;">
+                <span class="alert-icon">⚠️</span>
+                <span class="alert-message" id="alertMessage"></span>
+            </div>
+        </main>
+        </div>
+
+        <!-- Pestaña de Configuración -->
+        <div id="tab-configuracion" class="tab-content">
+            <!-- Sección 1: Grupos Obligatorios -->
+            <section class="panel config-panel">
+                <h2>⚙️ Configuración de Grupos Obligatorios</h2>
+                <p class="config-description">
+                    Algunos cursos requieren que el estudiante esté inscrito en múltiples grupos simultáneamente 
+                    (ej: grupo 0 = cátedra, grupo 1 = grupal). Configura aquí esos cursos.
+                    <br><strong>Nota:</strong> Los grupos solo se mezclan dentro de la misma sección.
+                </p>
+
+                <!-- Formulario para agregar configuración -->
+                <div class="config-form">
+                    <h3>Agregar Curso con Grupos Obligatorios</h3>
+                    <div class="config-row">
+                        <div class="config-field">
+                            <label>Curso:</label>
+                            <select id="configCourseSelect" onchange="loadCourseSections()">
+                                <option value="">Selecciona un curso...</option>
+                                {% for course in courses %}
+                                <option value="{{ course.asig_codigo }}">{{ course.asig_codigo }} - {{ course.asig_nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="config-field">
+                            <label>Sección:</label>
+                            <select id="configSectionSelect" onchange="loadSectionGroups()">
+                                <option value="">Primero selecciona un curso...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="config-row">
+                        <div class="config-field groups-checkboxes">
+                            <label>Grupos obligatorios:</label>
+                            <div id="configGroupsContainer">
+                                <span class="empty-message">Selecciona curso y sección</span>
+                            </div>
+                        </div>
+                        <button class="btn-add-config" onclick="addGroupConfig()">+ Agregar</button>
+                    </div>
+                </div>
+
+                <!-- Lista de configuraciones -->
+                <div class="config-list">
+                    <h3>Cursos Configurados</h3>
+                    <div id="configuredCourses">
+                        <p class="empty-message">No hay cursos configurados</p>
+                    </div>
+                </div>
+
+                <!-- Botón guardar -->
+                <button class="btn-save-config" onclick="saveConfig()">💾 Guardar Configuración</button>
+            </section>
+
+            <!-- Sección 2: Topones Válidos -->
+            <section class="panel config-panel topones-panel">
+                <h2>🔄 Configuración de Topones Válidos (BACH1121)</h2>
+                <p class="config-description">
+                    Selecciona los horarios de BACH1121 que permiten topones con otros cursos.
+                    <br><strong>Tapón Completo:</strong> Secciones 1, 2, 3, 4 - permite solapar todo el horario.
+                    <br><strong>Tapón Parcial:</strong> Otras secciones - solo permite solapar parte del horario.
+                </p>
+
+                <!-- Formulario para agregar topón -->
+                <div class="config-form">
+                    <h3>Agregar Topón Válido</h3>
+                    <div class="config-row">
+                        <div class="config-field" style="flex: 2;">
+                            <label>Horario de BACH1121:</label>
+                            <select id="toponHorarioSelect">
+                                <option value="">Cargando horarios...</option>
+                            </select>
+                        </div>
+                        <button class="btn-add-config" onclick="addToponConfig()">+ Agregar Topón</button>
+                    </div>
+                </div>
+
+                <!-- Lista de topones configurados -->
+                <div class="config-list">
+                    <h3>Topones Configurados</h3>
+                    <div id="configuredTopones">
+                        <p class="empty-message">No hay topones configurados</p>
+                    </div>
+                </div>
+
+                <!-- Botón guardar topones -->
+                <button class="btn-save-config" onclick="saveConfig()">💾 Guardar Configuración</button>
+            </section>
+        </div>
+
+        <!-- Pestaña de Datos -->
+        <div id="tab-datos" class="tab-content">
+            <section class="panel config-panel">
+                <h2>📊 Gestión de Datos del Excel</h2>
+                <p class="config-description">
+                    Edita, importa y exporta los datos de horarios almacenados en consolidado.xlsx.
+                </p>
+
+                <!-- Controles de importar/exportar -->
+                <div class="data-controls">
+                    <button class="btn-export" onclick="exportData()">📥 Exportar Excel</button>
+                    <label for="importFile" class="btn-import">📤 Importar Excel
+                        <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none" onchange="importData(event)">
+                    </label>
+                    <button class="btn-add-row" onclick="addNewRow()">➕ Agregar Registro</button>
+                    <button class="btn-save-config" onclick="saveExcelData()">💾 Guardar Cambios</button>
+                </div>
+
+                <!-- Tabla de datos -->
+                <div class="data-table-container">
+                    <table class="data-table" id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>Año</th>
+                                <th>Semestre</th>
+                                <th>Sigla</th>
+                                <th>Nombre Asignatura</th>
+                                <th>Sección</th>
+                                <th>Grupo</th>
+                                <th>Día</th>
+                                <th>Hora Inicio</th>
+                                <th>Hora Fin</th>
+                                <th>Campus</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody">
+                            <tr><td colspan="11" style="text-align:center; padding: 20px;">Cargando datos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginación -->
+                <div class="pagination-controls">
+                    <button class="btn-nav" onclick="previousPage()" id="prevPageBtn">◀ Anterior</button>
+                    <span id="pageInfo">Página 1 de 1</span>
+                    <button class="btn-nav" onclick="nextPage()" id="nextPageBtn">Siguiente ▶</button>
+                    <select id="rowsPerPage" onchange="changeRowsPerPage()">
+                        <option value="10">10 por página</option>
+                        <option value="25" selected>25 por página</option>
+                        <option value="50">50 por página</option>
+                        <option value="100">100 por página</option>
+                    </select>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
