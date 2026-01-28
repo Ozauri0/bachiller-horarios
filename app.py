@@ -34,6 +34,36 @@ def load_consolidado():
     excel_path = os.path.join(os.path.dirname(__file__), 'consolidado.xlsx')
     df = pd.read_excel(excel_path)
     
+    # Detectar formato del Excel (nuevo o antiguo)
+    if 'CODIGO CURSO' in df.columns:
+        # Nuevo formato: Horarios 2026 reporte.xlsx
+        # Columnas: CODIGO CURSO, NOMBRE CURSO, SECCION, GRUPO, SEMESTRE, CAMPUS, DIA, HORA INICIO, HORA FIN
+        
+        # Renombrar columnas al formato esperado por el resto del código
+        df = df.rename(columns={
+            'CODIGO CURSO': 'asig_codigo',
+            'NOMBRE CURSO': 'asig_nombre',
+            'SECCION': 'psec_codigo',
+            'GRUPO': 'pgru_codigo',
+            'SEMESTRE': 'sare_semestre',
+            'CAMPUS': 'camp_campus',
+            'DIA': 'sdia_descripcion',
+            'HORA INICIO': 'sper_hora_ini',
+            'HORA FIN': 'sper_hora_fin'
+        })
+        
+        # Agregar columnas faltantes con valores por defecto
+        df['sare_anho'] = 2026
+        df['uaca_codigo'] = None
+        df['uaca_nombre'] = None
+        df['sree_codigo'] = None
+        df['sree_nombre'] = None
+        df['sacu_codigo'] = None
+        df['tsal_tipo'] = None
+        df['ambiente_especifico'] = None
+        df['sare_comentario'] = None
+        
+    # Si ya está en el formato antiguo, no hacer nada
     # Las columnas son: sare_anho, sare_semestre, uaca_codigo, uaca_nombre, sree_codigo, 
     # sree_nombre, sacu_codigo, asig_codigo, asig_nombre, psec_codigo, pgru_codigo,
     # sper_hora_fin, sper_hora_ini, sdia_descripcion, camp_campus, tsal_tipo, 
@@ -49,8 +79,20 @@ def load_consolidado():
     df['pgru_codigo'] = df['pgru_codigo'].fillna(1).astype(int)
     df['sdia_descripcion'] = df['sdia_descripcion'].astype(str).str.strip()
     df['camp_campus'] = df['camp_campus'].astype(str).str.strip().str.upper()
-    df['sper_hora_ini'] = df['sper_hora_ini'].astype(str).str.strip()
-    df['sper_hora_fin'] = df['sper_hora_fin'].astype(str).str.strip()
+    
+    # Convertir horas a formato string HH:MM si vienen como datetime
+    def format_time(time_val):
+        if pd.isna(time_val):
+            return '00:00'
+        if isinstance(time_val, pd.Timestamp):
+            return time_val.strftime('%H:%M')
+        time_str = str(time_val).strip()
+        if len(time_str) == 8 and time_str.count(':') == 2:  # HH:MM:SS
+            return time_str[:5]  # Tomar solo HH:MM
+        return time_str
+    
+    df['sper_hora_ini'] = df['sper_hora_ini'].apply(format_time)
+    df['sper_hora_fin'] = df['sper_hora_fin'].apply(format_time)
     
     print(f"Total registros en consolidado: {len(df)}")
     print(f"Cursos únicos: {df['asig_codigo'].nunique()}")

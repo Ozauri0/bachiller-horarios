@@ -53,6 +53,8 @@ instance/
 # Excel temporales
 ~$*.xlsx
 ~$*.xls
+consolidado_old.xlsx
+*_old.xlsx
 
 # Sistema
 Thumbs.db
