@@ -8,6 +8,9 @@ import hashlib
 
 app = Flask(__name__)
 
+# Limitar la cantidad de horarios con topones inválidos que se devuelven
+MAX_CONFLICT_SCHEDULES = 100
+
 # Cache busting: genera hash de archivos estáticos para forzar actualización en hotfixes
 def get_file_hash(filename):
     """Genera hash MD5 del archivo para cache busting en producción"""
@@ -399,7 +402,14 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
     valid_topones: dict con topones válidos configurados para BACH1121
     """
     if not selected_courses:
-        return []
+        return [], {
+            'total_valid': 0,
+            'total_valid_topon': 0,
+            'total_conflicts_found': 0,
+            'total_conflicts_returned': 0,
+            'conflict_limit': MAX_CONFLICT_SCHEDULES,
+            'conflicts_truncated': False
+        }
     
     if group_configs is None:
         group_configs = {}
@@ -515,25 +525,29 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
     
     if len(course_sections) != len(selected_courses):
         # Algunos cursos no tienen secciones válidas
-        return []
+        return [], {
+            'total_valid': 0,
+            'total_valid_topon': 0,
+            'total_conflicts_found': 0,
+            'total_conflicts_returned': 0,
+            'conflict_limit': MAX_CONFLICT_SCHEDULES,
+            'conflicts_truncated': False
+        }
     
     # Generar todas las combinaciones posibles
     valid_schedules = []
     conflict_schedules = []
     valid_topon_schedules = []
-    
-    for combination in product(*course_sections):
-        sections_blocks = [opt['blocks'] for opt in combination]
-        is_valid, conflicts, valid_topones_found = is_valid_combination(sections_blocks, valid_topones)
-        
-        # Manejar grupo como string cuando es combinado
+    conflict_total = 0
+
+    def build_schedule_entry(combination, sections_blocks, conflicts, valid_topones_found, is_valid_flag):
         sections_info = []
         for opt in combination:
             if opt.get('is_combined'):
                 sections_info.append({
                     'course': str(opt['course']),
                     'section': int(opt['section']),
-                    'group': str(opt['group'])  # Mantener como string "0+1"
+                    'group': str(opt['group'])
                 })
             else:
                 sections_info.append({
@@ -542,25 +556,30 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
                     'group': int(opt['group'])
                 })
         
-        schedule = {
+        return {
             'sections': sections_info,
             'blocks': [block for opt in combination for block in opt['blocks']],
             'score': float(calculate_schedule_score(sections_blocks)),
-            'has_conflicts': not is_valid,
+            'has_conflicts': not is_valid_flag,
             'has_valid_topones': len(valid_topones_found) > 0,
             'conflicts': [c['message'] for c in conflicts] if conflicts else [],
             'conflict_types': list(set(c['type'] for c in conflicts)) if conflicts else [],
             'valid_topones': [t['message'] for t in valid_topones_found] if valid_topones_found else [],
             'valid_topon_types': list(set(t['topon_type'] for t in valid_topones_found)) if valid_topones_found else []
         }
-        
+
+    for combination in product(*course_sections):
+        sections_blocks = [opt['blocks'] for opt in combination]
+        is_valid, conflicts, valid_topones_found = is_valid_combination(sections_blocks, valid_topones)
+
         if is_valid and len(valid_topones_found) > 0:
-            # Horario válido pero con topones permitidos
-            valid_topon_schedules.append(schedule)
+            valid_topon_schedules.append(build_schedule_entry(combination, sections_blocks, conflicts, valid_topones_found, True))
         elif is_valid:
-            valid_schedules.append(schedule)
+            valid_schedules.append(build_schedule_entry(combination, sections_blocks, conflicts, valid_topones_found, True))
         elif include_conflicts:
-            conflict_schedules.append(schedule)
+            conflict_total += 1
+            if len(conflict_schedules) < MAX_CONFLICT_SCHEDULES:
+                conflict_schedules.append(build_schedule_entry(combination, sections_blocks, conflicts, valid_topones_found, False))
     
     # Ordenar por score
     valid_schedules.sort(key=lambda x: x['score'], reverse=True)
@@ -573,7 +592,16 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
     if include_conflicts:
         all_schedules.extend(conflict_schedules)
     
-    return all_schedules
+    stats = {
+        'total_valid': len(valid_schedules),
+        'total_valid_topon': len(valid_topon_schedules),
+        'total_conflicts_found': conflict_total,
+        'total_conflicts_returned': len(conflict_schedules),
+        'conflict_limit': MAX_CONFLICT_SCHEDULES,
+        'conflicts_truncated': conflict_total > len(conflict_schedules)
+    }
+    
+    return all_schedules, stats
 
 # Cargar datos al iniciar
 df = load_consolidado()
@@ -606,7 +634,13 @@ def api_generate():
         if len(selected_courses) == 0:
             return jsonify({'error': 'Selecciona al menos un curso'}), 400
         
-        schedules = generate_schedules(df, selected_courses, group_configs=group_configs, valid_topones=valid_topones, include_conflicts=True)
+        schedules, stats = generate_schedules(
+            df,
+            selected_courses,
+            group_configs=group_configs,
+            valid_topones=valid_topones,
+            include_conflicts=True
+        )
     except Exception as e:
         print(f"ERROR en api_generate: {str(e)}")
         import traceback
@@ -617,23 +651,30 @@ def api_generate():
         return jsonify({
             'success': False,
             'message': 'No se encontraron combinaciones de horarios',
-            'schedules': []
+            'schedules': [],
+            'stats': stats
         })
     
-    valid_count = sum(1 for s in schedules if not s.get('has_conflicts', False) and not s.get('has_valid_topones', False))
-    valid_topon_count = sum(1 for s in schedules if not s.get('has_conflicts', False) and s.get('has_valid_topones', False))
-    conflict_count = sum(1 for s in schedules if s.get('has_conflicts', False))
+    valid_count = stats.get('total_valid', 0)
+    valid_topon_count = stats.get('total_valid_topon', 0)
+    conflict_count = stats.get('total_conflicts_returned', 0)
+    conflict_total = stats.get('total_conflicts_found', conflict_count)
+    conflicts_truncated = stats.get('conflicts_truncated', False)
     
     message = f'Se encontraron {valid_count} horarios sin topones'
     if valid_topon_count > 0:
         message += f', {valid_topon_count} con topones válidos'
     if conflict_count > 0:
-        message += f' y {conflict_count} con topones inválidos'
+        conflict_label = f'{conflict_count}'
+        if conflicts_truncated and conflict_total > conflict_count:
+            conflict_label = f'{conflict_count} de {conflict_total}'
+        message += f' y {conflict_label} con topones inválidos'
     
     return jsonify({
         'success': True,
         'message': message,
-        'schedules': schedules
+        'schedules': schedules,
+        'stats': stats
     })
 
 @app.route('/api/course/<course_code>/sections')
