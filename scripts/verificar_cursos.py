@@ -1,11 +1,26 @@
+from pathlib import Path
 import pandas as pd
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = BASE_DIR / 'data'
+
+
+def _get_excel(path_candidates):
+    for p in path_candidates:
+        if p.exists():
+            return p
+    raise FileNotFoundError(f"No se encontró ninguno de: {[str(p) for p in path_candidates]}")
 
 print("=" * 60)
 print("VERIFICACIÓN DE CURSOS EN CRUCE-HORARIOS")
 print("=" * 60)
 
 # Cargar cruce-horarios
-cruce = pd.read_excel('cruce-horarios.xlsx')
+cruce_path = _get_excel([
+    DATA_DIR / 'cruce-horarios.xlsx',
+    BASE_DIR / 'cruce-horarios.xlsx'
+])
+cruce = pd.read_excel(cruce_path)
 print(f"\nColumnas de cruce-horarios: {cruce.columns.tolist()}")
 print(f"Total filas en cruce-horarios: {len(cruce)}")
 
@@ -55,7 +70,12 @@ print("VERIFICANDO EN HORARIOS 2026")
 print("=" * 60)
 
 # Cargar horarios
-df_horarios = pd.read_excel('HORARIOS 2026.xlsx', usecols=range(20))
+horarios_path = _get_excel([
+    DATA_DIR / 'HORARIOS 2026.xlsx',
+    DATA_DIR / 'Horarios 2026 reporte.xlsx',
+    BASE_DIR / 'HORARIOS 2026.xlsx'
+])
+df_horarios = pd.read_excel(horarios_path, usecols=range(20))
 df_horarios.columns = ['sare_codigo', 'sare_anho', 'sare_semestre', 'uaca_codigo', 'uaca_nombre', 
               'sree_codigo', 'sree_nombre', 'sacu_codigo', 'asig_codigo', 'asig_nombre', 
               'psec_codigo', 'pgru_codigo', 'hora_fin', 'hora_ini', 'dia', 'campus', 

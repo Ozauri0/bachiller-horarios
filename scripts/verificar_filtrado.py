@@ -2,10 +2,25 @@
 Script para verificar el filtrado de cursos/secciones entre cruce-horarios.xlsx y HORARIOS 2026.xlsx
 SOLO cursos de BACHILLER
 """
+from pathlib import Path
 import pandas as pd
 
+BASE_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = BASE_DIR / 'data'
+
+
+def _get_excel(path_candidates):
+    for p in path_candidates:
+        if p.exists():
+            return p
+    raise FileNotFoundError(f"No se encontró ninguno de: {[str(p) for p in path_candidates]}")
+
 print("Cargando cruce-horarios.xlsx...")
-cruce = pd.read_excel('cruce-horarios.xlsx')
+cruce_path = _get_excel([
+    DATA_DIR / 'cruce-horarios.xlsx',
+    BASE_DIR / 'cruce-horarios.xlsx'
+])
+cruce = pd.read_excel(cruce_path)
 cruce['asig_codigo'] = cruce['asig_codigo'].astype(str).str.strip()
 cruce['psec_codigo'] = cruce['psec_codigo'].fillna(1).astype(int)
 cruce['uaca_nombre'] = cruce['uaca_nombre'].astype(str).str.strip()
@@ -23,7 +38,12 @@ for _, row in cruce_bachiller.iterrows():
 print(f"Total pares (curso, seccion) para BACHILLER: {len(available)}")
 
 print("\nCargando HORARIOS 2026.xlsx...")
-df = pd.read_excel('HORARIOS 2026.xlsx', usecols=range(20))
+horarios_path = _get_excel([
+    DATA_DIR / 'HORARIOS 2026.xlsx',
+    DATA_DIR / 'Horarios 2026 reporte.xlsx',
+    BASE_DIR / 'HORARIOS 2026.xlsx'
+])
+df = pd.read_excel(horarios_path, usecols=range(20))
 df.columns = ['sare_codigo', 'sare_anho', 'sare_semestre', 'uaca_codigo', 'uaca_nombre', 
               'sree_codigo', 'sree_nombre', 'sacu_codigo', 'asig_codigo', 'asig_nombre', 
               'psec_codigo', 'pgru_codigo', 'hora_fin', 'hora_ini', 'dia', 'campus', 
