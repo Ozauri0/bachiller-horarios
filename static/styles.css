@@ -347,6 +347,19 @@ header h1 {
     border: 1px solid var(--border);
 }
 
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.badge-success { background: var(--success); }
+.badge-danger { background: var(--danger); }
+.badge-warning { background: var(--warning); color: #111827; }
+
 .schedule-container {
     overflow-x: auto;
     margin-bottom: 20px;
@@ -851,6 +864,59 @@ header h1 {
 
 .valid-topon-list li {
     margin-bottom: 4px;
+}
+
+/* Progress card for carga masiva */
+.progress-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    margin: 12px 0;
+}
+
+.progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.progress-title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.progress-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.progress-chip {
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--primary-light);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background: var(--bg-dark);
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    width: 0%;
+    transition: width 0.3s ease;
 }
 
 @keyframes pulse-green {
@@ -1396,6 +1462,10 @@ header h1 {
 .data-table td {
     padding: 8px;
     border-bottom: 1px solid var(--border);
+}
+
+.row-invalid {
+    background: rgba(239, 68, 68, 0.12);
 }
 
 .data-table input[type="text"],

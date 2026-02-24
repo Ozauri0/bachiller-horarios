@@ -19,6 +19,7 @@
             <button class="tab-btn active" onclick="showTab('horarios')">📅 Horarios</button>
             <button class="tab-btn" onclick="showTab('configuracion')">⚙️ Configuración</button>
             <button class="tab-btn" onclick="showTab('datos')">📊 Datos</button>
+            <button class="tab-btn" onclick="showTab('carga')">🧾 Carga masiva</button>
         </div>
 
         <!-- Contenido de pestañas -->
@@ -230,6 +231,99 @@
                         <option value="100">100 por página</option>
                     </select>
                 </div>
+            </section>
+        </div>
+
+        <!-- Pestaña de Carga Masiva -->
+        <div id="tab-carga" class="tab-content">
+            <section class="panel config-panel">
+                <h2>🧾 Carga masiva de horarios</h2>
+                <p class="config-description">
+                    Sube <code>alumnos.xlsx</code> o usa el archivo en <code>data/</code>. Se calculará el horario óptimo para cada alumno.
+                </p>
+
+                <div class="data-controls">
+                    <label for="massFile" class="btn-import">📤 Subir alumnos.xlsx
+                        <input type="file" id="massFile" accept=".xlsx,.xls" style="display:none">
+                    </label>
+                    <button class="btn-generate" id="massRunBtn" onclick="runMassiveGeneration()">🚀 Generar para todos</button>
+                    <button class="btn-export" onclick="downloadMassCsv()">⬇️ Descargar CSV</button>
+                </div>
+
+                <div id="massProgressContainer" class="progress-card" style="display:none;">
+                    <div class="progress-header">
+                        <div>
+                            <div class="progress-title" id="massProgressName">Alumno: -</div>
+                            <div class="progress-subtitle" id="massProgressCount">0 de 0 • Restantes: 0</div>
+                        </div>
+                        <div class="progress-chip" id="massProgressStatus">Procesando...</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="massProgressBar" class="progress-bar-fill" style="width:0%;"></div>
+                    </div>
+                </div>
+
+                <div class="summary-cards" id="massSummary" style="display:flex; gap:12px; flex-wrap:wrap;">
+                    <div class="summary-card">
+                        <div class="summary-title">Total alumnos</div>
+                        <div class="summary-value" id="massTotal">-</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-title">Con horario</div>
+                        <div class="summary-value" id="massOk">-</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-title">Sin horario</div>
+                        <div class="summary-value" id="massFail">-</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-title">Con topón válido</div>
+                        <div class="summary-value" id="massTopon">-</div>
+                    </div>
+                </div>
+
+                <div class="data-table-container" style="margin-top:16px;">
+                    <div class="data-controls" style="margin-bottom:10px; gap:12px;">
+                        <input type="text" id="massFilterText" class="search-input" placeholder="Buscar por alumno, RUT o registro" oninput="applyMassFilters()" style="max-width:320px;">
+                        <select id="massFilterStatus" onchange="applyMassFilters()">
+                            <option value="">Todos los estados</option>
+                            <option value="con_horario">Con horario válido</option>
+                            <option value="no_valido">Horario no válido</option>
+                            <option value="sin_horario">Sin horario</option>
+                        </select>
+                    </div>
+                    <table class="data-table" id="massTable">
+                        <thead>
+                            <tr>
+                                <th>Registro</th>
+                                <th>RUT</th>
+                                <th>Nombre</th>
+                                <th>Cursos</th>
+                                <th>Estado</th>
+                                <th>Ver</th>
+                                <th>Mensaje</th>
+                            </tr>
+                        </thead>
+                        <tbody id="massTableBody">
+                            <tr><td colspan="7" style="text-align:center; padding: 20px;">Sin resultados</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <section class="panel results-panel" id="massSchedulePanel" style="display:none; margin-top:16px;">
+                    <div class="results-header">
+                        <h3>📅 Horarios generados (carga masiva)</h3>
+                        <div class="schedule-navigation">
+                            <button class="btn-nav" id="massPrevBtn" onclick="prevMassSchedule()" disabled>◀ Anterior</button>
+                            <span class="schedule-counter" id="massScheduleCounter">0 / 0</span>
+                            <button class="btn-nav" id="massNextBtn" onclick="nextMassSchedule()" disabled>Siguiente ▶</button>
+                        </div>
+                    </div>
+                    <div class="schedule-info" id="massScheduleInfo"></div>
+                    <div class="schedule-container">
+                        <div class="schedule-grid" id="massScheduleGrid"></div>
+                    </div>
+                </section>
             </section>
         </div>
     </div>

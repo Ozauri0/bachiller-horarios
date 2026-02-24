@@ -6,6 +6,7 @@ from backend.routes.web import web_bp
 from backend.routes.schedules import schedules_bp
 from backend.routes.config import config_bp
 from backend.routes.data import data_bp
+from backend.routes.massive import mass_bp
 
 
 def create_app():
@@ -23,5 +24,6 @@ def create_app():
     app.register_blueprint(schedules_bp, url_prefix='/api')
     app.register_blueprint(config_bp, url_prefix='/api')
     app.register_blueprint(data_bp, url_prefix='/api')
+    app.register_blueprint(mass_bp, url_prefix='/api')
 
     return app

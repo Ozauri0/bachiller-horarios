@@ -11,6 +11,15 @@ let groupConfigs = {};
 // Formato: { 'BACH1121_1_0': { section: 1, group: 0, tapon_type: 'completo', blocks: [...] } }
 let toponesConfigs = {};
 
+// Estado de carga masiva
+let massResults = [];
+let massSummary = null;
+let massLoading = false;
+let massScheduleIndex = 0;
+let massSchedulesList = [];
+let massProgressTimer = null;
+let massFiltered = [];
+
 // Estructura de cursos cargada (secciones y grupos)
 let courseStructures = {};
 
@@ -30,6 +39,114 @@ async function loadConfig() {
         groupConfigs = {};
         toponesConfigs = {};
     }
+}
+
+function startMassProgressPolling() {
+    stopMassProgressPolling();
+    pollMassProgress();
+    massProgressTimer = setInterval(pollMassProgress, 800);
+}
+
+function stopMassProgressPolling() {
+    if (massProgressTimer) {
+        clearInterval(massProgressTimer);
+        massProgressTimer = null;
+    }
+}
+
+async function pollMassProgress() {
+    const btn = document.getElementById('massRunBtn');
+    try {
+        const resp = await fetch('/api/mass/progress');
+        const data = await resp.json();
+        if (!data.success) return;
+        const state = data.state || {};
+
+        const normalized = {
+            running: !!state.running,
+            total: state.total || 0,
+            current: state.current || 0,
+            remaining: state.remaining || Math.max((state.total || 0) - (state.current || 0), 0),
+            current_name: state.current_name || '',
+            stateLabel: state.running ? 'Procesando...' : (state.error ? 'Error' : 'Listo')
+        };
+        showMassProgressUI(normalized);
+
+        if (state.error) {
+            stopMassProgressPolling();
+            massLoading = false;
+            btn.innerHTML = '🚀 Generar para todos';
+            btn.disabled = false;
+            showToast('Error en carga masiva: ' + state.error, 'error');
+            return;
+        }
+
+        if (state.done) {
+            stopMassProgressPolling();
+            massLoading = false;
+            btn.innerHTML = '🚀 Generar para todos';
+            btn.disabled = false;
+            massSummary = state.summary || null;
+            massResults = state.results || [];
+            massFiltered = massResults.slice();
+            renderMassResults();
+            prepareMassSchedules();
+            showMassProgressUI({
+                running: false,
+                total: state.total || 0,
+                current: state.total || 0,
+                remaining: 0,
+                current_name: 'Completado',
+                stateLabel: 'Completado'
+            });
+            showToast('Carga masiva completada', 'success');
+        }
+    } catch (err) {
+        console.error('Error consultando progreso:', err);
+    }
+}
+
+function showMassProgressUI(state) {
+    const container = document.getElementById('massProgressContainer');
+    const nameEl = document.getElementById('massProgressName');
+    const countEl = document.getElementById('massProgressCount');
+    const statusEl = document.getElementById('massProgressStatus');
+    const barEl = document.getElementById('massProgressBar');
+
+    if (!container || !nameEl || !countEl || !statusEl || !barEl) return;
+
+    if (!state.running && !massLoading && !state.stateLabel) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    const total = state.total || 0;
+    const current = state.current || 0;
+    const remaining = state.remaining != null ? state.remaining : Math.max(total - current, 0);
+    const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0;
+
+    nameEl.textContent = `Alumno: ${state.current_name || '-'}`;
+    countEl.textContent = `${current} de ${total} • Restantes: ${remaining}`;
+    statusEl.textContent = state.stateLabel || (state.running ? 'Procesando...' : 'Listo');
+    barEl.style.width = `${percent}%`;
+}
+
+function applyMassFilters() {
+    const text = (document.getElementById('massFilterText')?.value || '').toLowerCase().trim();
+    const status = document.getElementById('massFilterStatus')?.value || '';
+
+    massFiltered = (massResults || []).filter(r => {
+        const matchText = !text ||
+            (r.nombre && r.nombre.toLowerCase().includes(text)) ||
+            (r.rut && r.rut.toLowerCase().includes(text)) ||
+            (r.registro && r.registro.toLowerCase().includes(text));
+
+        const matchStatus = !status || r.status === status;
+        return matchText && matchStatus;
+    });
+
+    renderMassResults();
 }
 
 // Guardar configuración en el servidor
@@ -381,6 +498,12 @@ function showTab(tabName) {
     if (tabName === 'datos') {
         loadExcelData();
     }
+
+    // Si es la pestaña de carga masiva, limpiar mensajes previos
+    if (tabName === 'carga') {
+        renderMassResults();
+        prepareMassSchedules();
+    }
 }
 
 // Colores para los cursos
@@ -577,12 +700,17 @@ function displaySchedule() {
     document.getElementById('prevBtn').disabled = currentScheduleIndex === 0;
     document.getElementById('nextBtn').disabled = currentScheduleIndex === schedules.length - 1;
 
-    // Mostrar cartel de topones si hay conflictos
+    renderScheduleContent(schedule, selectedCourses, scheduleGrid, scheduleInfo);
+}
+
+function renderScheduleContent(schedule, coursesList, gridEl, infoEl, headerHTML = '') {
+    if (!schedule || !gridEl || !infoEl) return;
+
     let conflictHTML = '';
     if (schedule.has_conflicts && schedule.conflicts && schedule.conflicts.length > 0) {
         const hasOverlap = schedule.conflict_types && schedule.conflict_types.includes('overlap');
         const hasTravelTime = schedule.conflict_types && schedule.conflict_types.includes('travel_time');
-        
+
         let conflictTitle = '⚠️ TOPONES DETECTADOS';
         if (hasOverlap && hasTravelTime) {
             conflictTitle = '⚠️ TOPÓN HORARIO Y DE CAMPUS';
@@ -591,7 +719,7 @@ function displaySchedule() {
         } else if (hasTravelTime) {
             conflictTitle = '⚠️ TOPÓN DE CAMPUS';
         }
-        
+
         conflictHTML = `
             <div class="conflict-alert">
                 <div class="conflict-header">${conflictTitle}</div>
@@ -601,13 +729,12 @@ function displaySchedule() {
             </div>
         `;
     }
-    
-    // Mostrar cartel verde de topones válidos
+
     let validToponHTML = '';
     if (schedule.has_valid_topones && schedule.valid_topones && schedule.valid_topones.length > 0) {
         const hasCompleto = schedule.valid_topon_types && schedule.valid_topon_types.includes('completo');
         const hasParcial = schedule.valid_topon_types && schedule.valid_topon_types.includes('parcial');
-        
+
         let toponTitle = '✅ TOPONES VÁLIDOS';
         if (hasCompleto && hasParcial) {
             toponTitle = '✅ TOPONES VÁLIDOS (COMPLETO Y PARCIAL)';
@@ -616,7 +743,7 @@ function displaySchedule() {
         } else if (hasParcial) {
             toponTitle = '✅ TOPÓN VÁLIDO PARCIAL';
         }
-        
+
         validToponHTML = `
             <div class="valid-topon-alert">
                 <div class="valid-topon-header">${toponTitle}</div>
@@ -627,25 +754,21 @@ function displaySchedule() {
         `;
     }
 
-    // Mostrar info de secciones con grupo
-    scheduleInfo.innerHTML = conflictHTML + validToponHTML + schedule.sections.map((s, i) => `
+    infoEl.innerHTML = headerHTML + conflictHTML + validToponHTML + (schedule.sections || []).map(s => `
         <span class="info-badge">${s.course} - Sec ${s.section} Grp ${s.group}</span>
     `).join('');
 
-    // Crear mapa de colores para cursos
     const courseColorMap = {};
-    selectedCourses.forEach((course, index) => {
+    (coursesList || []).forEach((course, index) => {
         courseColorMap[course.code] = courseColors[index % courseColors.length];
     });
 
-    // Crear matriz para almacenar bloques por celda (puede haber múltiples por celda = colisiones)
     const matriz = [];
     timeSlots.forEach(() => {
-        matriz.push([[], [], [], [], []]); // 5 días, cada uno es un array de bloques
+        matriz.push([[], [], [], [], []]);
     });
 
-    // Colocar bloques en la matriz (detectando colisiones)
-    schedule.blocks.forEach(block => {
+    (schedule.blocks || []).forEach(block => {
         const startMinutes = timeToMinutes(block.hora_ini);
         const endMinutes = timeToMinutes(block.hora_fin);
         const dayKey = normalizeDayName(block.dia);
@@ -668,13 +791,10 @@ function displaySchedule() {
         });
     });
 
-    // Calcular cuántos bloques colisionan en cada día/hora y asignar índice de columna
-    const blockColumnInfo = new Map(); // blockId -> { columnIndex, totalColumns }
-    const collisionGroups = new Map(); // dayIndex -> [{ blocks: [...], start, end }]
-    
-    // Para cada día, encontrar grupos de bloques que se superponen
+    const blockColumnInfo = new Map();
+    const collisionGroups = new Map();
+
     for (let dayIndex = 0; dayIndex < 5; dayIndex++) {
-        // Recolectar todos los bloques únicos del día con sus rangos
         const dayBlocks = [];
         timeSlots.forEach((_, timeIndex) => {
             matriz[timeIndex][dayIndex].forEach(item => {
@@ -690,14 +810,11 @@ function displaySchedule() {
             });
         });
 
-        // Agrupar bloques que se superponen
         const groups = [];
         dayBlocks.forEach(blockInfo => {
-            // Encontrar si este bloque se superpone con algún grupo existente
             let foundGroup = null;
             for (const group of groups) {
                 for (const existing of group) {
-                    // Verificar si se superponen
                     if (blockInfo.start < existing.end && blockInfo.end > existing.start) {
                         foundGroup = group;
                         break;
@@ -713,7 +830,6 @@ function displaySchedule() {
             }
         });
 
-        // Guardar grupos de colisiones para este día
         const dayCollisions = groups.filter(g => g.length > 1).map(group => ({
             blocks: group,
             start: Math.min(...group.map(b => b.start)),
@@ -721,7 +837,6 @@ function displaySchedule() {
         }));
         collisionGroups.set(dayIndex, dayCollisions);
 
-        // Asignar índice de columna a cada bloque en cada grupo
         groups.forEach(group => {
             const totalColumns = group.length;
             group.forEach((blockInfo, colIndex) => {
@@ -733,7 +848,6 @@ function displaySchedule() {
         });
     }
 
-    // Generar HTML usando tabla para mejor control
     let tableHTML = '<table class="schedule-table"><thead><tr>';
     tableHTML += '<th class="time-header">Hora</th>';
     days.forEach(day => {
@@ -741,11 +855,9 @@ function displaySchedule() {
     });
     tableHTML += '</tr></thead><tbody>';
 
-    // Track de celdas ya renderizadas (para rowspan)
     const renderedBlocks = new Set();
-    const renderedCollisionGroups = new Set(); // Track de grupos de colisión ya renderizados
+    const renderedCollisionGroups = new Set();
 
-    // Generar filas - mostrar solo horas :00 y :30 en la columna de tiempo
     timeSlots.forEach((time, timeIndex) => {
         const showTime = time.endsWith(':00') || time.endsWith(':30');
         const timeDisplay = showTime ? time : '';
@@ -758,18 +870,15 @@ function displaySchedule() {
             const cellBlocks = matriz[timeIndex][dayIndex];
             const dayCollisions = collisionGroups.get(dayIndex) || [];
 
-            // Verificar si estamos en el inicio de un grupo de colisión
             const collisionGroup = dayCollisions.find(g => 
                 g.start === currentMinutes && 
                 !renderedCollisionGroups.has(`${dayIndex}_${g.start}_${g.end}`)
             );
 
             if (collisionGroup) {
-                // Renderizar todo el grupo de colisión
                 const groupId = `${dayIndex}_${collisionGroup.start}_${collisionGroup.end}`;
                 renderedCollisionGroups.add(groupId);
                 
-                // Marcar todos los bloques del grupo como renderizados
                 collisionGroup.blocks.forEach(blockInfo => {
                     renderedBlocks.add(blockInfo.id);
                 });
@@ -777,17 +886,16 @@ function displaySchedule() {
                 const totalDuration = collisionGroup.end - collisionGroup.start;
                 const rowSpan = Math.ceil(totalDuration / 10);
 
-                // Generar HTML con bloques lado a lado, altura completa
                 let innerHTML = '<div class="collision-flex">';
                 
-                collisionGroup.blocks.forEach((blockInfo, idx) => {
+                collisionGroup.blocks.forEach(blockInfo => {
                     const block = blockInfo.block;
                     const campus = block.campus || 'N/A';
                     const seccion = block.seccion || 'N/A';
                     const grupo = block.grupo || 'N/A';
                     
                     innerHTML += `
-                        <div class="collision-block-flex ${courseColorMap[block.curso]}">
+                        <div class="collision-block-flex ${courseColorMap[block.curso] || ''}">
                             <div class="block-content">
                                 <span class="block-title">${block.curso}</span>
                                 <span class="block-section">Sec ${seccion} - Grp ${grupo}</span>
@@ -804,23 +912,19 @@ function displaySchedule() {
             }
 
             if (cellBlocks.length === 0) {
-                // Celda vacía
                 tableHTML += '<td class="empty-cell"></td>';
             } else {
-                // Filtrar bloques que empiezan aquí y no han sido renderizados
                 const startingBlocks = cellBlocks.filter(item => {
                     const blockId = `${item.block.curso}_${item.block.seccion}_${item.block.grupo}_${item.block.hora_ini}_${item.block.dia}`;
                     return item.isStart && !renderedBlocks.has(blockId);
                 });
 
-                // Verificar si hay bloques que continúan (ya renderizados con rowspan)
                 const continuingBlocks = cellBlocks.filter(item => {
                     const blockId = `${item.block.curso}_${item.block.seccion}_${item.block.grupo}_${item.block.hora_ini}_${item.block.dia}`;
                     return renderedBlocks.has(blockId);
                 });
 
                 if (startingBlocks.length === 0 && continuingBlocks.length > 0) {
-                    // Todos los bloques de esta celda ya fueron renderizados con rowspan, no agregar td
                     return;
                 }
 
@@ -829,13 +933,11 @@ function displaySchedule() {
                     return;
                 }
 
-                // Marcar bloques como renderizados
                 startingBlocks.forEach(item => {
                     const blockId = `${item.block.curso}_${item.block.seccion}_${item.block.grupo}_${item.block.hora_ini}_${item.block.dia}`;
                     renderedBlocks.add(blockId);
                 });
 
-                // Un solo bloque (sin colisión - las colisiones ya se manejan arriba)
                 if (startingBlocks.length === 1) {
                     const block = startingBlocks[0].block;
                     const campus = block.campus || 'N/A';
@@ -844,7 +946,7 @@ function displaySchedule() {
                     const duration = startingBlocks[0].endMinutes - startingBlocks[0].startMinutes;
                     const actualRowSpan = Math.ceil(duration / 10);
 
-                    tableHTML += `<td class="block-cell ${courseColorMap[block.curso]}" rowspan="${actualRowSpan}">
+                    tableHTML += `<td class="block-cell ${courseColorMap[block.curso] || ''}" rowspan="${actualRowSpan}">
                         <div class="block-content">
                             <span class="block-title">${block.curso}</span>
                             <span class="block-section">Sec ${seccion} - Grp ${grupo}</span>
@@ -860,7 +962,7 @@ function displaySchedule() {
     });
 
     tableHTML += '</tbody></table>';
-    scheduleGrid.innerHTML = tableHTML;
+    gridEl.innerHTML = tableHTML;
 }
 
 // Navegación entre horarios
@@ -1170,5 +1272,239 @@ function changeRowsPerPage() {
     rowsPerPage = parseInt(select.value);
     currentPage = 1;
     displayDataTable();
+}
+
+// ========== CARGA MASIVA ==========
+
+async function runMassiveGeneration() {
+    if (massLoading) return;
+    const btn = document.getElementById('massRunBtn');
+    const fileInput = document.getElementById('massFile');
+    const formData = new FormData();
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+        formData.append('file', fileInput.files[0]);
+    }
+
+    try {
+        massLoading = true;
+        massSummary = null;
+        massResults = [];
+        massFiltered = [];
+        renderMassResults();
+        prepareMassSchedules();
+        showMassProgressUI({ running: true, current: 0, total: 0, remaining: 0, current_name: '', stateLabel: 'Preparando...' });
+        btn.innerHTML = '<span class="loading"></span> Generando...';
+        btn.disabled = true;
+
+        const response = await fetch('/api/mass/generate_async', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+            showToast('Error en carga masiva: ' + (result.error || 'desconocido'), 'error');
+            showMassProgressUI({ running: false, stateLabel: 'Error' });
+            massLoading = false;
+            btn.innerHTML = '🚀 Generar para todos';
+            btn.disabled = false;
+            return;
+        }
+
+        startMassProgressPolling();
+    } catch (error) {
+        console.error('Error carga masiva:', error);
+        showToast('Error en carga masiva', 'error');
+        showMassProgressUI({ running: false, stateLabel: 'Error' });
+        massLoading = false;
+        btn.innerHTML = '🚀 Generar para todos';
+        btn.disabled = false;
+    } finally {
+        if (fileInput) fileInput.value = '';
+    }
+}
+
+function renderMassResults() {
+    const tbody = document.getElementById('massTableBody');
+    const totalEl = document.getElementById('massTotal');
+    const okEl = document.getElementById('massOk');
+    const failEl = document.getElementById('massFail');
+    const toponEl = document.getElementById('massTopon');
+
+    if (!tbody) return;
+
+    const source = (massFiltered && massFiltered.length >= 0) ? massFiltered : massResults;
+
+    if (!source || source.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">Sin resultados</td></tr>';
+    } else {
+        tbody.innerHTML = source.map((r, idx) => {
+            const cursos = (r.cursos || []).join(', ');
+            const statusBadge = r.status === 'con_horario'
+                ? '<span class="badge badge-success">Con horario</span>'
+                : r.status === 'no_valido'
+                    ? '<span class="badge badge-warning">No válido</span>'
+                    : '<span class="badge badge-danger">Sin horario</span>';
+            const msg = r.message || '';
+            const hasSchedule = r.status === 'con_horario' && r.blocks && r.blocks.length > 0;
+            const viewBtn = hasSchedule ? `<button class="btn-export" onclick="selectMassResultByRegistro('${r.registro || ''}')">Ver</button>` : '—';
+            const rowClass = (r.status === 'sin_horario' || r.status === 'no_valido') ? 'row-invalid' : '';
+            return `<tr class="${rowClass}">
+                <td>${r.registro || ''}</td>
+                <td>${r.rut || ''}</td>
+                <td>${r.nombre || ''}</td>
+                <td>${cursos}</td>
+                <td>${statusBadge}</td>
+                <td style="text-align:center;">${viewBtn}</td>
+                <td>${msg}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    if (massSummary) {
+        totalEl.textContent = massSummary.total_alumnos ?? '-';
+        okEl.textContent = massSummary.con_horario ?? '-';
+        failEl.textContent = massSummary.sin_horario ?? '-';
+        toponEl.textContent = massSummary.con_topon_valido ?? '-';
+    } else {
+        totalEl.textContent = okEl.textContent = failEl.textContent = toponEl.textContent = '-';
+    }
+}
+
+function prepareMassSchedules() {
+    massSchedulesList = (massResults || []).filter(r => r.status !== 'sin_horario' && r.blocks && r.blocks.length > 0);
+    massScheduleIndex = 0;
+    renderMassSchedule();
+}
+
+function selectMassResultByRegistro(registro) {
+    const list = massResults || [];
+    const entry = list.find(r => r.registro === registro);
+    if (!entry || !entry.blocks || entry.blocks.length === 0) {
+        showToast('Este alumno no tiene horario generado', 'info');
+        return;
+    }
+
+    massSchedulesList = list.filter(r => r.status !== 'sin_horario' && r.blocks && r.blocks.length > 0);
+    const targetIdx = massSchedulesList.findIndex(r => r.registro === registro);
+    massScheduleIndex = targetIdx >= 0 ? targetIdx : 0;
+    renderMassSchedule();
+}
+
+function renderMassSchedule() {
+    const panel = document.getElementById('massSchedulePanel');
+    const grid = document.getElementById('massScheduleGrid');
+    const info = document.getElementById('massScheduleInfo');
+    const counter = document.getElementById('massScheduleCounter');
+    const prevBtn = document.getElementById('massPrevBtn');
+    const nextBtn = document.getElementById('massNextBtn');
+
+    if (!panel || !grid || !info || !counter || !prevBtn || !nextBtn) return;
+
+    if (!massSchedulesList || massSchedulesList.length === 0) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    if (massScheduleIndex < 0) massScheduleIndex = 0;
+    if (massScheduleIndex >= massSchedulesList.length) massScheduleIndex = massSchedulesList.length - 1;
+
+    const entry = massSchedulesList[massScheduleIndex];
+    const courseBadges = (entry.courses_detail && entry.courses_detail.length > 0)
+        ? entry.courses_detail.map(c => `<span class="info-badge">${c.code}${c.name ? ' - ' + c.name : ''} (Sec ${c.section || '-'} Grp ${c.group || '-'})</span>`).join('')
+        : '';
+    const header = `<div class="info-badge">${entry.nombre || 'Sin nombre'} (Registro ${entry.registro || '-'})</div>${courseBadges}`;
+
+    const coursesList = [];
+    (entry.sections || []).forEach(sec => {
+        if (!coursesList.find(c => c.code === sec.course)) {
+            coursesList.push({ code: sec.course });
+        }
+    });
+
+    const schedule = {
+        ...entry,
+        has_conflicts: entry.has_conflicts || false,
+        conflict_types: entry.conflict_types || [],
+        valid_topones: entry.valid_topones || [],
+        valid_topon_types: entry.valid_topon_types || [],
+        has_valid_topones: entry.has_valid_topones || false
+    };
+
+    panel.style.display = 'block';
+    counter.textContent = `${massScheduleIndex + 1} / ${massSchedulesList.length}`;
+    prevBtn.disabled = massScheduleIndex === 0;
+    nextBtn.disabled = massScheduleIndex === massSchedulesList.length - 1;
+
+    renderScheduleContent(schedule, coursesList, grid, info, header);
+}
+
+function prevMassSchedule() {
+    if (massScheduleIndex > 0) {
+        massScheduleIndex--;
+        renderMassSchedule();
+    }
+}
+
+function nextMassSchedule() {
+    if (massScheduleIndex < massSchedulesList.length - 1) {
+        massScheduleIndex++;
+        renderMassSchedule();
+    }
+}
+
+function downloadMassCsv() {
+    if (!massResults || massResults.length === 0) {
+        showToast('No hay resultados para descargar', 'info');
+        return;
+    }
+
+    const headers = ['RUT', 'DV', 'REGISTRO', 'NOMBRE', 'APELLIDO PATERNO', 'APELLIDO MATERNO', 'CODIGO ASIGNATURA', 'NOMBRE ASIGNATURA', 'SECCION', 'GRUPO', 'SEMESTRE', 'PLAN'];
+    const lines = [headers.join(',')];
+
+    const scheduled = massResults.filter(r => r.status !== 'sin_horario' && r.sections && r.sections.length > 0);
+    scheduled.forEach(r => {
+        const courses = (r.courses_detail && r.courses_detail.length > 0 ? r.courses_detail : r.sections) || [];
+        courses.forEach(course => {
+            const code = course.code || course.course || '';
+            const courseName = course.name || '';
+            const sectionVal = course.section != null ? course.section : '';
+            const groupVal = course.group != null ? course.group : '';
+            const semestre = course.semestre != null ? course.semestre : '';
+            const plan = course.plan != null ? course.plan : '';
+
+            const row = [
+                r.rut_num || '',
+                r.dv || '',
+                r.registro || '',
+                (r.nombre_pila || '').replace(/,/g, ' '),
+                (r.apellido_paterno || '').replace(/,/g, ' '),
+                (r.apellido_materno || '').replace(/,/g, ' '),
+                code,
+                courseName.replace(/,/g, ' '),
+                sectionVal,
+                groupVal,
+                semestre,
+                plan
+            ];
+
+            lines.push(row.map(v => typeof v === 'string' ? v.replace(/\n/g, ' ') : v).join(','));
+        });
+    });
+
+    if (lines.length === 1) {
+        showToast('No hay horarios generados para descargar', 'info');
+        return;
+    }
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'carga_masiva.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
