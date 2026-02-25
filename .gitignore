@@ -62,3 +62,8 @@ desktop.ini
 
 # Datos sensibles
 /data/alumnos.xlsx
+
+
+# Nuevo front en Next.js
+/new-front/.next/
+/new-front/node_modules/
