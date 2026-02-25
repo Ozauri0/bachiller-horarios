@@ -14,7 +14,8 @@ MASS_STATE = {
     'current_registro': '',
     'results': None,
     'summary': None,
-    'error': None
+    'error': None,
+    'phase': ''
 }
 
 
@@ -54,11 +55,12 @@ def api_mass_generate():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def _progress_cb(idx, total, name, registro):
+def _progress_cb(idx, total, name, registro, phase='generando'):
     MASS_STATE['current'] = idx + 1
     MASS_STATE['total'] = total
     MASS_STATE['current_name'] = name
     MASS_STATE['current_registro'] = registro
+    MASS_STATE['phase'] = phase
 
 
 def _run_massive_job(alumnos_df, base_df):
@@ -71,7 +73,8 @@ def _run_massive_job(alumnos_df, base_df):
             'current': 0,
             'total': 0,
             'current_name': '',
-            'current_registro': ''
+            'current_registro': '',
+            'phase': 'generando'
         })
 
         results = process_massive(base_df, alumnos_df, progress_cb=_progress_cb)
@@ -91,14 +94,16 @@ def _run_massive_job(alumnos_df, base_df):
             'running': False,
             'results': results,
             'summary': summary,
-            'error': None
+            'error': None,
+            'phase': 'completado'
         })
     except Exception as e:
         MASS_STATE.update({
             'running': False,
             'results': None,
             'summary': None,
-            'error': str(e)
+            'error': str(e),
+            'phase': 'error'
         })
 
 

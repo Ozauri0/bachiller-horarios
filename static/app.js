@@ -18,7 +18,7 @@ let massLoading = false;
 let massScheduleIndex = 0;
 let massSchedulesList = [];
 let massProgressTimer = null;
-let massFiltered = [];
+let massFiltered = null;
 
 // Estructura de cursos cargada (secciones y grupos)
 let courseStructures = {};
@@ -62,13 +62,20 @@ async function pollMassProgress() {
         if (!data.success) return;
         const state = data.state || {};
 
+        const phase = state.phase || '';
+        let stateLabel = state.running ? 'Procesando...' : (state.error ? 'Error' : 'Listo');
+        if (phase === 'ajustando') stateLabel = 'Calculando sobre cupos';
+        if (phase === 'generando') stateLabel = 'Procesando...';
+        if (phase === 'completado') stateLabel = 'Completado';
+
         const normalized = {
             running: !!state.running,
             total: state.total || 0,
             current: state.current || 0,
             remaining: state.remaining || Math.max((state.total || 0) - (state.current || 0), 0),
             current_name: state.current_name || '',
-            stateLabel: state.running ? 'Procesando...' : (state.error ? 'Error' : 'Listo')
+            stateLabel,
+            phase
         };
         showMassProgressUI(normalized);
 
@@ -88,7 +95,7 @@ async function pollMassProgress() {
             btn.disabled = false;
             massSummary = state.summary || null;
             massResults = state.results || [];
-            massFiltered = massResults.slice();
+            massFiltered = null;
             renderMassResults();
             prepareMassSchedules();
             showMassProgressUI({
@@ -136,15 +143,19 @@ function applyMassFilters() {
     const text = (document.getElementById('massFilterText')?.value || '').toLowerCase().trim();
     const status = document.getElementById('massFilterStatus')?.value || '';
 
-    massFiltered = (massResults || []).filter(r => {
-        const matchText = !text ||
-            (r.nombre && r.nombre.toLowerCase().includes(text)) ||
-            (r.rut && r.rut.toLowerCase().includes(text)) ||
-            (r.registro && r.registro.toLowerCase().includes(text));
+    if (!text && !status) {
+        massFiltered = null;
+    } else {
+        massFiltered = (massResults || []).filter(r => {
+            const matchText = !text ||
+                (r.nombre && r.nombre.toLowerCase().includes(text)) ||
+                (r.rut && r.rut.toLowerCase().includes(text)) ||
+                (r.registro && r.registro.toLowerCase().includes(text));
 
-        const matchStatus = !status || r.status === status;
-        return matchText && matchStatus;
-    });
+            const matchStatus = !status || r.status === status;
+            return matchText && matchStatus;
+        });
+    }
 
     renderMassResults();
 }
@@ -1289,7 +1300,7 @@ async function runMassiveGeneration() {
         massLoading = true;
         massSummary = null;
         massResults = [];
-        massFiltered = [];
+        massFiltered = null;
         renderMassResults();
         prepareMassSchedules();
         showMassProgressUI({ running: true, current: 0, total: 0, remaining: 0, current_name: '', stateLabel: 'Preparando...' });
@@ -1333,7 +1344,7 @@ function renderMassResults() {
 
     if (!tbody) return;
 
-    const source = (massFiltered && massFiltered.length >= 0) ? massFiltered : massResults;
+    const source = (massFiltered !== null) ? massFiltered : massResults;
 
     if (!source || source.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">Sin resultados</td></tr>';
