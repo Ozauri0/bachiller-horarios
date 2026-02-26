@@ -97,10 +97,10 @@ def collect_course_meta(group):
     return meta
 
 
-def process_massive(base_df, alumnos_df, progress_cb=None):
+def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=None, remaining_caps_override=None):
     group_configs, valid_topones = load_saved_config()
-    capacities = load_capacity_map()
-    remaining_caps = capacities.copy()
+    capacities = capacities_override or load_capacity_map()
+    remaining_caps = remaining_caps_override.copy() if remaining_caps_override is not None else capacities.copy()
 
     # Cache schedules per unique course set to avoid recomputing the full combinatorial search for students
     schedule_cache = {}

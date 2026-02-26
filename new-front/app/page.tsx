@@ -31,6 +31,7 @@ import {
   importExcel,
   loadConfig,
   pollMassive,
+  rebalanceMassive,
   runMassiveGeneration,
   saveConfig,
   saveExcelData
@@ -83,6 +84,25 @@ export default function HomePage() {
   const [capacityStats, setCapacityStats] = useState<CapacityStats | null>(null);
   const [overCapacitySort, setOverCapacitySort] = useState<'remaining_desc' | 'remaining_asc' | 'course_asc'>('remaining_desc');
   const [mostEmptySort, setMostEmptySort] = useState<'remaining_desc' | 'remaining_asc' | 'course_asc'>('remaining_desc');
+  const [massRebalancing, setMassRebalancing] = useState(false);
+  const massTargetCount = useMemo(() => {
+    if (!massResults || massResults.length === 0) return 0;
+    const over = new Set((capacityStats?.over_capacity || []).map(c => `${c.course}|${c.section}`));
+    const regs = new Set<string>();
+    massResults.forEach(r => {
+      const reg = r.registro || '';
+      if (!reg) return;
+      if (r.status === 'sin_horario') {
+        regs.add(reg);
+        return;
+      }
+      (r.sections || []).forEach(sec => {
+        const key = `${sec.course}|${sec.section}`;
+        if (over.has(key)) regs.add(reg);
+      });
+    });
+    return regs.size;
+  }, [massResults, capacityStats]);
 
   const [massModalOpen, setMassModalOpen] = useState(false);
   const [massModalPos, setMassModalPos] = useState<ModalPos>({ x: 32, y: 32 });
@@ -402,6 +422,7 @@ export default function HomePage() {
       let stateLabel = state.running ? 'Procesando...' : state.error ? 'Error' : 'Listo';
       if (phase === 'ajustando') stateLabel = 'Calculando sobre cupos';
       if (phase === 'generando') stateLabel = 'Procesando...';
+      if (phase === 'recalculando') stateLabel = 'Recalculando cupos';
       if (phase === 'completado') stateLabel = 'Completado';
       const normalized = {
         ...state,
@@ -439,6 +460,7 @@ export default function HomePage() {
   const runMassive = async (file?: File) => {
     try {
       setMassLoading(true);
+      setMassRebalancing(false);
       setMassSummary(null);
       setMassResults([]);
       setCapacityReport(null);
@@ -452,6 +474,42 @@ export default function HomePage() {
       console.error(err);
       setMassLoading(false);
       showBanner(err.message || 'Error en carga masiva', 'error');
+    }
+  };
+
+  const rebalanceOvercapacity = async () => {
+    try {
+      setMassRebalancing(true);
+      setMassState({
+        running: true,
+        phase: 'recalculando',
+        current: 0,
+        total: massTargetCount,
+        current_name: '',
+        remaining: massTargetCount,
+        stateLabel: 'Recalculando cupos'
+      });
+      const resp = await rebalanceMassive();
+      if (!resp.success) throw new Error(resp.error || 'No se pudo recalcular sobrecupo');
+      const total = resp.total ?? resp.target_count ?? massTargetCount;
+      // Arrancamos el polling igual que en generación masiva
+      startPolling();
+      if (total) {
+        setMassState(prev => ({
+          ...(prev || {}),
+          running: true,
+          phase: 'recalculando',
+          total,
+          remaining: total,
+          stateLabel: 'Recalculando cupos'
+        }));
+      }
+    } catch (err: any) {
+      console.error(err);
+      showBanner(err.message || 'Error recalculando sobrecupo', 'error');
+      setMassState(null);
+    } finally {
+      setMassRebalancing(false);
     }
   };
 
@@ -622,6 +680,25 @@ export default function HomePage() {
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 3a1 1 0 011 1v8.586l1.707-1.707a1 1 0 111.414 1.414l-3.5 3.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.414L9 12.586V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
                         <span>Descargar XLSX</span>
                       </button>
+                      {capacityStats?.over_capacity?.length ? (
+                        <button
+                          className="bg-amber-600 hover:bg-amber-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 disabled:opacity-60"
+                          disabled={massRebalancing}
+                          onClick={rebalanceOvercapacity}
+                        >
+                          {massRebalancing ? (
+                            <span className="flex items-center gap-2">
+                              <span className="animate-spin h-4 w-4 border-2 border-white/50 border-t-transparent rounded-full" />
+                              Recalculando...
+                            </span>
+                          ) : (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a1 1 0 011-1h10a1 1 0 011 1v4.382a1 1 0 01-.553.894l-4.894 2.447a1 1 0 00-.553.894V17a1 1 0 01-1.447.894l-4-2A1 1 0 013 15V4z" clipRule="evenodd" /></svg>
+                              <span>Recalcular sobrecupo</span>
+                            </>
+                          )}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -631,7 +708,7 @@ export default function HomePage() {
                 <div className="flex justify-between items-end mb-4">
                   <div>
                     <span className="text-xs font-semibold text-indigo-400 tracking-wider uppercase">Procesando</span>
-                    <h3 className="text-lg font-medium">{massState?.current_name || '—'}</h3>
+                    <h3 className="text-lg font-medium">{massState?.phase === 'recalculando' ? 'Recalculando cupos' : (massState?.current_name || '—')}</h3>
                     <p className="text-slate-500 text-xs">{massState ? `${massState.current || 0} de ${massState.total || 0} alumnos • Restantes ${massState.remaining || 0}` : 'Sin ejecución'}</p>
                   </div>
                   <div className="flex items-center space-x-2 text-indigo-400">
