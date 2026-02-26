@@ -90,6 +90,30 @@ def _results_to_rows(results):
     return rows
 
 
+def _is_schedule_valid_for_summary(entry):
+    if not entry:
+        return False
+    if entry.get('status') != 'con_horario':
+        return False
+    if entry.get('has_conflicts'):
+        return False
+    if entry.get('conflict_types'):
+        return False
+    return True
+
+
+def _build_massive_summary(results):
+    total = len(results)
+    valid = sum(1 for r in results if _is_schedule_valid_for_summary(r))
+    valid_topon = sum(1 for r in results if r.get('has_valid_topones'))
+    return {
+        'total_alumnos': total,
+        'con_horario': valid,
+        'sin_horario': total - valid,
+        'con_topon_valido': valid_topon
+    }
+
+
 def _run_rebalance_job(target_registros, prev_results, base_df):
     try:
         alumnos_df = load_alumnos_dataframe()
@@ -97,7 +121,7 @@ def _run_rebalance_job(target_registros, prev_results, base_df):
         subset_df = alumnos_df[alumnos_df['REGISTRO'].isin(target_registros)]
 
         if subset_df.empty:
-            MASS_STATE.update({'running': False, 'phase': 'error', 'error': 'No se encontraron alumnos en el Excel actual'})
+            MASS_STATE.update({'running': False, 'phase': 'error', 'error': 'No se encontraron alumnos en el Excel actual', 'rebalanced_count': 0})
             return
 
         capacities = load_capacity_map()
@@ -122,6 +146,7 @@ def _run_rebalance_job(target_registros, prev_results, base_df):
         # Combinar con el resto de alumnos
         combined = []
         updated_by_reg = {str(r.get('registro', '')).strip(): r for r in results_subset}
+        rebalanced_count = len(updated_by_reg)
         for r in prev_results:
             reg = str(r.get('registro', '')).strip()
             if reg in updated_by_reg:
@@ -130,18 +155,8 @@ def _run_rebalance_job(target_registros, prev_results, base_df):
                 combined.append(r)
 
         total = len(combined)
-        with_schedule = sum(1 for r in combined if r.get('status') == 'con_horario')
-        without_schedule = total - with_schedule
-        with_valid_topon = sum(1 for r in combined if r.get('has_valid_topones'))
-
         capacity_stats = _build_capacity_stats(capacity_report)
-
-        summary = {
-            'total_alumnos': total,
-            'con_horario': with_schedule,
-            'sin_horario': without_schedule,
-            'con_topon_valido': with_valid_topon
-        }
+        summary = _build_massive_summary(combined)
 
         payload = {
             'timestamp': datetime.utcnow().isoformat() + 'Z',
@@ -163,6 +178,7 @@ def _run_rebalance_job(target_registros, prev_results, base_df):
             'total': total,
             'current_name': '',
             'current_registro': '',
+            'rebalanced_count': rebalanced_count,
         })
     except Exception as e:
         print(f"ERROR en rebalance masivo async: {e}")
@@ -173,7 +189,8 @@ def _run_rebalance_job(target_registros, prev_results, base_df):
             'phase': 'error',
             'error': str(e),
             'capacity_report': None,
-            'capacity_stats': None
+            'capacity_stats': None,
+            'rebalanced_count': 0
         })
 
 
@@ -198,19 +215,8 @@ def api_mass_generate():
         base_df = current_app.config['DATAFRAME']
 
         results, capacity_report = process_massive(base_df, alumnos_df)
-        total = len(results)
-        with_schedule = sum(1 for r in results if r['status'] == 'con_horario')
-        without_schedule = total - with_schedule
-        with_valid_topon = sum(1 for r in results if r.get('has_valid_topones'))
-
+        summary = _build_massive_summary(results)
         capacity_stats = _build_capacity_stats(capacity_report)
-
-        summary = {
-            'total_alumnos': total,
-            'con_horario': with_schedule,
-            'sin_horario': without_schedule,
-            'con_topon_valido': with_valid_topon
-        }
 
         payload = {
             'timestamp': datetime.utcnow().isoformat() + 'Z',
@@ -253,23 +259,13 @@ def _run_massive_job(alumnos_df, base_df):
             'total': 0,
             'current_name': '',
             'current_registro': '',
-            'phase': 'generando'
+            'phase': 'generando',
+            'rebalanced_count': 0
         })
 
         results, capacity_report = process_massive(base_df, alumnos_df, progress_cb=_progress_cb)
-        total = len(results)
-        with_schedule = sum(1 for r in results if r['status'] == 'con_horario')
-        without_schedule = total - with_schedule
-        with_valid_topon = sum(1 for r in results if r.get('has_valid_topones'))
-
+        summary = _build_massive_summary(results)
         capacity_stats = _build_capacity_stats(capacity_report)
-
-        summary = {
-            'total_alumnos': total,
-            'con_horario': with_schedule,
-            'sin_horario': without_schedule,
-            'con_topon_valido': with_valid_topon
-        }
 
         payload = {
             'timestamp': datetime.utcnow().isoformat() + 'Z',
@@ -286,7 +282,8 @@ def _run_massive_job(alumnos_df, base_df):
             'error': None,
             'phase': 'completado',
             'capacity_report': capacity_report,
-            'capacity_stats': capacity_stats
+            'capacity_stats': capacity_stats,
+            'rebalanced_count': 0
         })
     except Exception as e:
         MASS_STATE.update({
@@ -296,7 +293,8 @@ def _run_massive_job(alumnos_df, base_df):
             'error': str(e),
             'phase': 'error',
             'capacity_report': None,
-            'capacity_stats': None
+            'capacity_stats': None,
+            'rebalanced_count': 0
         })
 
 
@@ -326,7 +324,8 @@ def api_mass_generate_async():
             'current_name': '',
             'current_registro': '',
             'capacity_report': None,
-            'capacity_stats': None
+            'capacity_stats': None,
+            'rebalanced_count': 0
         })
 
         thread = threading.Thread(target=_run_massive_job, args=(alumnos_df, base_df), daemon=True)
@@ -339,7 +338,8 @@ def api_mass_generate_async():
         traceback.print_exc()
         MASS_STATE.update({
             'running': False,
-            'error': str(e)
+            'error': str(e),
+            'rebalanced_count': 0
         })
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -431,7 +431,8 @@ def api_mass_rebalance():
             'capacity_report': None,
             'capacity_stats': None,
             'summary': None,
-            'results': None
+            'results': None,
+            'rebalanced_count': 0
         })
 
         base_df = current_app.config['DATAFRAME']
@@ -450,7 +451,8 @@ def api_mass_rebalance():
         MASS_STATE.update({
             'running': False,
             'phase': 'error',
-            'error': str(e)
+            'error': str(e),
+            'rebalanced_count': 0
         })
         return jsonify({'success': False, 'error': str(e)}), 500
 

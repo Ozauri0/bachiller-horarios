@@ -105,7 +105,7 @@ export default function HomePage() {
   }, [massResults, capacityStats]);
 
   const [massModalOpen, setMassModalOpen] = useState(false);
-  const [massModalPos, setMassModalPos] = useState<ModalPos>({ x: 32, y: 32 });
+  const [massModalPos, setMassModalPos] = useState<ModalPos>({ x: typeof window !== 'undefined' ? window.innerWidth / 2 : 600, y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400 });
 
   const pollerRef = useRef<NodeJS.Timeout | null>(null);
   const draggingRef = useRef(false);
@@ -119,7 +119,8 @@ export default function HomePage() {
   }, [courses, search]);
 
   const massSchedulesList = useMemo(() => {
-    return (massFiltered ?? massResults).filter(r => r.status !== 'sin_horario' && r.blocks && r.blocks.length > 0);
+    // Mostrar cualquier alumno que tenga bloques generados, incluso si está marcado con conflictos/sobrecupo.
+    return (massFiltered ?? massResults).filter(r => r.blocks && r.blocks.length > 0);
   }, [massFiltered, massResults]);
 
   const sortedOverCapacity = useMemo(() => {
@@ -444,7 +445,9 @@ export default function HomePage() {
         setCapacityReport(state.capacity_report || null);
         setCapacityStats(state.capacity_stats || null);
         setMassFiltered(null);
-        showBanner('Carga masiva completada', 'success');
+        const rebalanced = state.rebalanced_count || 0;
+        const doneMessage = rebalanced > 0 ? `Reajustados ${rebalanced} alumnos` : 'Carga masiva completada';
+        showBanner(doneMessage, 'success');
       }
     } catch (err) {
       console.error(err);
@@ -534,13 +537,12 @@ export default function HomePage() {
 
   const selectMassSchedule = (registro?: string) => {
     if (!registro) return;
-    const list = massResults.filter(r => r.status !== 'sin_horario' && r.blocks && r.blocks.length > 0);
-    const idx = list.findIndex(r => r.registro === registro);
+    const idx = massSchedulesList.findIndex(r => r.registro === registro);
     if (idx >= 0) {
       setMassScheduleIndex(idx);
       const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
       const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
-      setMassModalPos({ x: Math.max(24, vw / 2 - 520), y: Math.max(24, vh / 2 - 300) });
+      setMassModalPos({ x: vw / 2, y: vh / 2 });
       setMassModalOpen(true);
     }
   };
@@ -884,22 +886,20 @@ export default function HomePage() {
                       <tr><td className="px-6 py-4 text-sm text-slate-300" colSpan={7}>Sin resultados</td></tr>
                     ) : (
                       (massFiltered ?? massResults).map(r => {
-                        const isCritical = (r as any).over_capacity || r.has_conflicts;
-                        const statusBadge = isCritical
-                          ? <Badge tone="rose">Conflicto</Badge>
-                          : r.status === 'con_horario'
-                            ? <Badge tone="emerald">Generado</Badge>
-                            : r.status === 'no_valido'
-                              ? <Badge tone="amber">No válido</Badge>
-                              : <Badge tone="rose">Sin horario</Badge>;
-                        const hasSchedule = r.status === 'con_horario' && r.blocks && r.blocks.length > 0;
+                        const badge = (() => {
+                          if (r.has_conflicts || r.status === 'no_valido') return <Badge tone="rose">No válido</Badge>;
+                          if ((r as any).over_capacity) return <Badge tone="amber">Sobrecupo</Badge>;
+                          if (r.status === 'con_horario') return <Badge tone="emerald">Generado</Badge>;
+                          return <Badge tone="rose">Sin horario</Badge>;
+                        })();
+                        const hasSchedule = r.blocks && r.blocks.length > 0;
                         return (
                           <tr key={r.registro} className="hover:bg-slate-800/30 transition-colors">
                             <td className="px-6 py-4 text-sm text-slate-300">{r.registro}</td>
                             <td className="px-6 py-4 text-sm text-slate-300">{r.rut}</td>
                             <td className="px-6 py-4 text-sm font-medium text-white">{r.nombre}</td>
                             <td className="px-6 py-4 text-sm text-slate-300">{(r.cursos || []).join(', ')}</td>
-                            <td className="px-6 py-4">{statusBadge}</td>
+                            <td className="px-6 py-4">{badge}</td>
                             <td className="px-6 py-4 text-center">
                               {hasSchedule ? (
                                 <button onClick={() => selectMassSchedule(r.registro)} className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">Ver horario</button>
@@ -1236,8 +1236,8 @@ export default function HomePage() {
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => { stopDrag(); setMassModalOpen(false); }} />
           <div
-            className="absolute w-[min(1100px,calc(100%-32px))] max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/95 shadow-2xl"
-            style={{ left: massModalPos.x, top: massModalPos.y }}
+            className="absolute w-[min(95vw,1280px)] max-h-[95vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/95 shadow-2xl flex flex-col"
+            style={{ left: massModalPos.x, top: massModalPos.y, transform: 'translate(-50%, -50%)' }}
           >
             <div
               className="flex items-center justify-between px-4 py-3 border-b border-slate-800 cursor-move select-none"
@@ -1266,7 +1266,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="p-4 overflow-auto max-h-[calc(90vh-64px)]">
+            <div className="p-4 flex-1 overflow-auto">
               <ScheduleGrid
                 schedule={{
                   ...massSchedule,

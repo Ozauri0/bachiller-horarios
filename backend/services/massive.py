@@ -242,7 +242,6 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
         over_capacity = not schedule_capacity_ok(chosen, remaining_caps)
 
         if over_capacity:
-            status = 'no_valido'
             message += ' (sobre cupo)'
 
         apply_capacity(chosen, remaining_caps, -1)

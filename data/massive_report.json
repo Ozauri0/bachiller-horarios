@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-02-26T04:26:12.996393Z",
+  "timestamp": "2026-02-26T23:49:20.279282Z",
   "summary": {
     "total_alumnos": 306,
-    "con_horario": 198,
-    "sin_horario": 108,
+    "con_horario": 288,
+    "sin_horario": 18,
     "con_topon_valido": 39
   },
   "capacity_report": [
