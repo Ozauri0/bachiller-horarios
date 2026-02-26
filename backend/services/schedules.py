@@ -180,7 +180,7 @@ def calculate_schedule_score(sections_blocks):
     return days_score + dead_time_score + early_score
 
 
-def generate_schedules(df, selected_courses, group_configs=None, valid_topones=None, include_conflicts=True):
+def generate_schedules(df, selected_courses, group_configs=None, valid_topones=None, include_conflicts=True, debug=False):
     if not selected_courses:
         return [], {
             'total_valid': 0,
@@ -196,8 +196,9 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
     if valid_topones is None:
         valid_topones = {}
 
-    print(f"DEBUG: group_configs recibido: {group_configs}")
-    print(f"DEBUG: valid_topones recibido: {valid_topones}")
+    if debug:
+        print(f"DEBUG: group_configs recibido: {group_configs}")
+        print(f"DEBUG: valid_topones recibido: {valid_topones}")
 
     course_group_configs = {}
     for _, config in group_configs.items():
@@ -205,7 +206,8 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
         section = config.get('section')
         groups = config.get('groups', [])
 
-        print(f"DEBUG: Procesando config - curso: {course_code}, sección: {section}, grupos: {groups}")
+        if debug:
+            print(f"DEBUG: Procesando config - curso: {course_code}, sección: {section}, grupos: {groups}")
 
         if course_code and section is not None and len(groups) >= 2:
             if course_code not in course_group_configs:
@@ -232,12 +234,14 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
                 available_groups = [int(s['pgru_codigo']) for s in sec_list]
                 psec_int = int(psec)
 
-                print(f"DEBUG: Verificando curso {course_code}, psec={psec_int}, available_groups={available_groups}")
-                print(f"DEBUG: section_configs keys: {list(section_configs.keys())}")
+                if debug:
+                    print(f"DEBUG: Verificando curso {course_code}, psec={psec_int}, available_groups={available_groups}")
+                    print(f"DEBUG: section_configs keys: {list(section_configs.keys())}")
 
                 if psec_int in section_configs:
                     required_groups_list = section_configs[psec_int]
-                    print(f"DEBUG: Sección {psec_int} TIENE configs, required_groups_list={required_groups_list}")
+                    if debug:
+                        print(f"DEBUG: Sección {psec_int} TIENE configs, required_groups_list={required_groups_list}")
 
                     for required_groups in required_groups_list:
                         if all(g in available_groups for g in required_groups):
@@ -248,7 +252,8 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
 
                             if combined_blocks:
                                 groups_display = '+'.join(map(str, required_groups))
-                                print(f"DEBUG: Agregando combinación {course_code} sec {psec_int} grupos {required_groups}")
+                                if debug:
+                                    print(f"DEBUG: Agregando combinación {course_code} sec {psec_int} grupos {required_groups}")
                                 section_options.append({
                                     'course': course_code,
                                     'section': psec,
@@ -257,7 +262,8 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
                                     'blocks': combined_blocks
                                 })
                 else:
-                    print(f"DEBUG: Sección {psec_int} NO tiene config, usando grupos individuales")
+                    if debug:
+                        print(f"DEBUG: Sección {psec_int} NO tiene config, usando grupos individuales")
                     for sec in sec_list:
                         blocks = get_section_blocks(df, course_code, psec, sec['pgru_codigo'])
                         if blocks:

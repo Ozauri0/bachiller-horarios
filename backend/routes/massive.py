@@ -1,4 +1,6 @@
 import threading
+import json
+from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
 from backend.services.massive import load_alumnos_dataframe, process_massive
 from backend.utils.constants import DATA_DIR
@@ -15,8 +17,30 @@ MASS_STATE = {
     'results': None,
     'summary': None,
     'error': None,
-    'phase': ''
+    'phase': '',
+    'capacity_report': None,
+    'capacity_stats': None
 }
+
+
+def _build_capacity_stats(capacity_report):
+    if not capacity_report:
+        return {'over_capacity': [], 'most_empty': []}
+    over_capacity = [c for c in capacity_report if c.get('over_capacity') or c.get('remaining', 0) < 0]
+    most_empty = sorted(capacity_report, key=lambda x: x.get('remaining', 0), reverse=True)
+    return {
+        'over_capacity': over_capacity,
+        'most_empty': most_empty
+    }
+
+
+def _save_capacity_report(payload):
+    try:
+        path = DATA_DIR / 'massive_report.json'
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        print(f"WARN: no se pudo guardar massive_report.json: {exc}")
 
 
 @mass_bp.route('/mass/generate', methods=['POST'])
@@ -30,11 +54,13 @@ def api_mass_generate():
         alumnos_df = load_alumnos_dataframe(upload)
         base_df = current_app.config['DATAFRAME']
 
-        results = process_massive(base_df, alumnos_df)
+        results, capacity_report = process_massive(base_df, alumnos_df)
         total = len(results)
         with_schedule = sum(1 for r in results if r['status'] == 'con_horario')
         without_schedule = total - with_schedule
         with_valid_topon = sum(1 for r in results if r.get('has_valid_topones'))
+
+        capacity_stats = _build_capacity_stats(capacity_report)
 
         summary = {
             'total_alumnos': total,
@@ -43,10 +69,20 @@ def api_mass_generate():
             'con_topon_valido': with_valid_topon
         }
 
+        payload = {
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'summary': summary,
+            'capacity_report': capacity_report,
+            'capacity_stats': capacity_stats
+        }
+        _save_capacity_report(payload)
+
         return jsonify({
             'success': True,
             'summary': summary,
-            'results': results
+            'results': results,
+            'capacity_report': capacity_report,
+            'capacity_stats': capacity_stats
         })
     except Exception as e:
         print(f"ERROR en carga masiva: {str(e)}")
@@ -77,11 +113,13 @@ def _run_massive_job(alumnos_df, base_df):
             'phase': 'generando'
         })
 
-        results = process_massive(base_df, alumnos_df, progress_cb=_progress_cb)
+        results, capacity_report = process_massive(base_df, alumnos_df, progress_cb=_progress_cb)
         total = len(results)
         with_schedule = sum(1 for r in results if r['status'] == 'con_horario')
         without_schedule = total - with_schedule
         with_valid_topon = sum(1 for r in results if r.get('has_valid_topones'))
+
+        capacity_stats = _build_capacity_stats(capacity_report)
 
         summary = {
             'total_alumnos': total,
@@ -90,12 +128,22 @@ def _run_massive_job(alumnos_df, base_df):
             'con_topon_valido': with_valid_topon
         }
 
+        payload = {
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'summary': summary,
+            'capacity_report': capacity_report,
+            'capacity_stats': capacity_stats
+        }
+        _save_capacity_report(payload)
+
         MASS_STATE.update({
             'running': False,
             'results': results,
             'summary': summary,
             'error': None,
-            'phase': 'completado'
+            'phase': 'completado',
+            'capacity_report': capacity_report,
+            'capacity_stats': capacity_stats
         })
     except Exception as e:
         MASS_STATE.update({
@@ -103,7 +151,9 @@ def _run_massive_job(alumnos_df, base_df):
             'results': None,
             'summary': None,
             'error': str(e),
-            'phase': 'error'
+            'phase': 'error',
+            'capacity_report': None,
+            'capacity_stats': None
         })
 
 
@@ -131,7 +181,9 @@ def api_mass_generate_async():
             'current': 0,
             'total': total,
             'current_name': '',
-            'current_registro': ''
+            'current_registro': '',
+            'capacity_report': None,
+            'capacity_stats': None
         })
 
         thread = threading.Thread(target=_run_massive_job, args=(alumnos_df, base_df), daemon=True)
@@ -155,3 +207,28 @@ def api_mass_progress():
     state['remaining'] = max(state.get('total', 0) - state.get('current', 0), 0)
     state['done'] = not state.get('running') and state.get('results') is not None
     return jsonify({'success': True, 'state': state})
+
+
+@mass_bp.route('/mass/report', methods=['GET'])
+def api_mass_report():
+    try:
+        path = DATA_DIR / 'massive_report.json'
+        if path.exists():
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return jsonify({'success': True, 'report': data})
+        # Si no hay archivo, devolver estado en memoria si existe
+        if MASS_STATE.get('capacity_report'):
+            return jsonify({
+                'success': True,
+                'report': {
+                    'timestamp': datetime.utcnow().isoformat() + 'Z',
+                    'summary': MASS_STATE.get('summary'),
+                    'capacity_report': MASS_STATE.get('capacity_report'),
+                    'capacity_stats': MASS_STATE.get('capacity_stats')
+                }
+            })
+        return jsonify({'success': False, 'error': 'Sin reportes previos'}), 404
+    except Exception as e:
+        print(f"ERROR leyendo massive_report.json: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500

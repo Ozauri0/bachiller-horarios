@@ -102,6 +102,13 @@ def process_massive(base_df, alumnos_df, progress_cb=None):
     capacities = load_capacity_map()
     remaining_caps = capacities.copy()
 
+    # Cache schedules per unique course set to avoid recomputing the full combinatorial search for students
+    schedule_cache = {}
+    # Cache filtered dataframes per unique course set to skip repeated pandas filtering
+    student_df_cache = {}
+    # Cache curso metadata (nombre/semestre/plan) per unique course set to avoid recomputing per alumno
+    course_meta_cache = {}
+
     results = []
     grouped = alumnos_df.groupby('REGISTRO')
     total = len(grouped)
@@ -118,8 +125,6 @@ def process_massive(base_df, alumnos_df, progress_cb=None):
         ap_mat = str(group['APELLIDO MATERNO'].iloc[0]).strip() if 'APELLIDO MATERNO' in group else ''
         nombre_completo = ' '.join(x for x in [nombre, ap_pat, ap_mat] if x).strip()
 
-        course_meta = collect_course_meta(group)
-
         if progress_cb:
             progress_cb(idx, total, nombre_completo or registro_val, registro_val, phase='generando')
 
@@ -129,8 +134,20 @@ def process_massive(base_df, alumnos_df, progress_cb=None):
             if code and code not in course_codes:
                 course_codes.append(code)
 
+        course_codes_key = tuple(sorted(course_codes))
+
+        if course_codes_key in course_meta_cache:
+            course_meta = course_meta_cache[course_codes_key]
+        else:
+            course_meta = collect_course_meta(group)
+            course_meta_cache[course_codes_key] = course_meta
+
         # Construir df solo por cursos (ignorando sección/grupo de entrada)
-        student_df, missing = build_student_df(base_df, course_codes)
+        if course_codes_key in student_df_cache:
+            student_df, missing = student_df_cache[course_codes_key]
+        else:
+            student_df, missing = build_student_df(base_df, course_codes)
+            student_df_cache[course_codes_key] = (student_df, missing)
         if missing:
             results.append({
                 'registro': registro_val,
@@ -149,13 +166,18 @@ def process_massive(base_df, alumnos_df, progress_cb=None):
             continue
 
         selected_courses = course_codes
-        schedules, _stats = generate_schedules(
-            student_df,
-            selected_courses,
-            group_configs=group_configs,
-            valid_topones=valid_topones,
-            include_conflicts=True
-        )
+
+        if course_codes_key in schedule_cache:
+            schedules, _stats = schedule_cache[course_codes_key]
+        else:
+            schedules, _stats = generate_schedules(
+                student_df,
+                selected_courses,
+                group_configs=group_configs,
+                valid_topones=valid_topones,
+                include_conflicts=True,
+            )
+            schedule_cache[course_codes_key] = (schedules, _stats)
 
         candidate_schedules = schedules[:10] if schedules else []
 
@@ -169,7 +191,11 @@ def process_massive(base_df, alumnos_df, progress_cb=None):
                 break
 
         if chosen is None:
+            # Elegir mejor opción disponible, aunque tenga conflictos o esté sobre cupo
             chosen, used_topon = pick_best_schedule(schedules)
+        if not chosen and schedules:
+            chosen = schedules[0]
+            used_topon = chosen.get('has_valid_topones')
         if not chosen:
             results.append({
                 'registro': registro_val,
@@ -181,8 +207,8 @@ def process_massive(base_df, alumnos_df, progress_cb=None):
                 'apellido_paterno': ap_pat,
                 'apellido_materno': ap_mat,
                 'cursos': selected_courses,
-            'status': 'sin_horario',
-            'message': 'No se encontró horario válido',
+                'status': 'sin_horario',
+                'message': 'No se encontró horario válido',
                 'sections': [],
                 'courses_detail': [],
                 'blocks': [],
@@ -216,6 +242,7 @@ def process_massive(base_df, alumnos_df, progress_cb=None):
         over_capacity = not schedule_capacity_ok(chosen, remaining_caps)
 
         if over_capacity:
+            status = 'no_valido'
             message += ' (sobre cupo)'
 
         apply_capacity(chosen, remaining_caps, -1)
@@ -313,4 +340,23 @@ def process_massive(base_df, alumnos_df, progress_cb=None):
         entry.pop('candidates', None)
         results.append(entry)
 
-    return results
+    # Construir reporte de capacidad por curso/sección
+    capacity_report = []
+    for (code, section), cap in capacities.items():
+        if cap is None:
+            continue
+        remaining = remaining_caps.get((code, section), INF_CAP)
+        if cap >= INF_CAP:
+            # Capacidad infinita no se reporta
+            continue
+        assigned = cap - remaining
+        capacity_report.append({
+            'course': code,
+            'section': section,
+            'capacity': cap,
+            'assigned': assigned,
+            'remaining': remaining,
+            'over_capacity': remaining < 0
+        })
+
+    return results, capacity_report

@@ -204,24 +204,26 @@ export function ScheduleGrid({ schedule, courses = [], header }: Props) {
 
     const conflictAlert = (() => {
       if (!schedule.has_conflicts || !schedule.conflicts || schedule.conflicts.length === 0) return null;
+      const uniqueConflicts = Array.from(new Set(schedule.conflicts));
       const hasOverlap = schedule.conflict_types?.includes('overlap');
       const hasTravel = schedule.conflict_types?.includes('travel_time');
       let title = '⚠️ Topones detectados';
       if (hasOverlap && hasTravel) title = '⚠️ Topón horario y de campus';
       else if (hasOverlap) title = '⚠️ Topón horario';
       else if (hasTravel) title = '⚠️ Topón de campus';
-      return { title, items: schedule.conflicts };
+      return { title, items: uniqueConflicts };
     })();
 
     const validToponAlert = (() => {
       if (!schedule.has_valid_topones || !schedule.valid_topones || schedule.valid_topones.length === 0) return null;
+      const uniqueValid = Array.from(new Set(schedule.valid_topones));
       const hasCompleto = schedule.valid_topon_types?.includes('completo');
       const hasParcial = schedule.valid_topon_types?.includes('parcial');
       let title = '✅ Topones válidos';
       if (hasCompleto && hasParcial) title = '✅ Topones válidos (completo y parcial)';
       else if (hasCompleto) title = '✅ Topón válido completo';
       else if (hasParcial) title = '✅ Topón válido parcial';
-      return { title, items: schedule.valid_topones };
+      return { title, items: uniqueValid };
     })();
 
     const infoBadges = (schedule.sections || []).map(sec => `${sec.course} • Sec ${sec.section} Grp ${sec.group}`);
@@ -246,8 +248,8 @@ export function ScheduleGrid({ schedule, courses = [], header }: Props) {
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-100">
             <div className="font-semibold text-sm mb-1">{conflictAlert.title}</div>
             <ul className="text-xs space-y-1 list-disc pl-4">
-              {conflictAlert.items?.map(item => (
-                <li key={item}>{item}</li>
+              {conflictAlert.items?.map((item, idx) => (
+                <li key={`${item}-${idx}`}>{item}</li>
               ))}
             </ul>
           </div>
@@ -256,8 +258,8 @@ export function ScheduleGrid({ schedule, courses = [], header }: Props) {
           <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-3 text-emerald-100">
             <div className="font-semibold text-sm mb-1">{validToponAlert.title}</div>
             <ul className="text-xs space-y-1 list-disc pl-4">
-              {validToponAlert.items?.map(item => (
-                <li key={item}>{item}</li>
+              {validToponAlert.items?.map((item, idx) => (
+                <li key={`${item}-${idx}`}>{item}</li>
               ))}
             </ul>
           </div>
