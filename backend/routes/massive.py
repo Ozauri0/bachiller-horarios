@@ -1,7 +1,9 @@
 import threading
 import json
 from datetime import datetime
-from flask import Blueprint, jsonify, request, current_app
+from io import BytesIO
+import pandas as pd
+from flask import Blueprint, jsonify, request, current_app, send_file
 from backend.services.massive import load_alumnos_dataframe, process_massive
 from backend.utils.constants import DATA_DIR
 
@@ -22,6 +24,21 @@ MASS_STATE = {
     'capacity_stats': None
 }
 
+EXPORT_COLUMNS = [
+    'RUT',
+    'DV',
+    'REGISTRO',
+    'NOMBRE',
+    'APELLIDO PATERNO',
+    'APELLIDO MATERNO',
+    'CODIGO ASIGNATURA',
+    'NOMBRE ASIGNATURA',
+    'SECCION',
+    'GRUPO',
+    'SEMESTRE',
+    'PLAN'
+]
+
 
 def _build_capacity_stats(capacity_report):
     if not capacity_report:
@@ -32,6 +49,36 @@ def _build_capacity_stats(capacity_report):
         'over_capacity': over_capacity,
         'most_empty': most_empty
     }
+
+
+def _results_to_rows(results):
+    rows = []
+    if not results:
+        return rows
+
+    for r in results:
+        if r.get('status') == 'sin_horario':
+            continue
+
+        courses = r.get('courses_detail') or r.get('sections') or []
+        for course in courses:
+            code = course.get('course') or course.get('code') or ''
+            rows.append({
+                'RUT': r.get('rut_num', ''),
+                'DV': r.get('dv', ''),
+                'REGISTRO': r.get('registro', ''),
+                'NOMBRE': r.get('nombre_pila', ''),
+                'APELLIDO PATERNO': r.get('apellido_paterno', ''),
+                'APELLIDO MATERNO': r.get('apellido_materno', ''),
+                'CODIGO ASIGNATURA': code,
+                'NOMBRE ASIGNATURA': course.get('name', ''),
+                'SECCION': course.get('section', ''),
+                'GRUPO': course.get('group', ''),
+                'SEMESTRE': course.get('semestre', ''),
+                'PLAN': course.get('plan', '')
+            })
+
+    return rows
 
 
 def _save_capacity_report(payload):
@@ -207,6 +254,33 @@ def api_mass_progress():
     state['remaining'] = max(state.get('total', 0) - state.get('current', 0), 0)
     state['done'] = not state.get('running') and state.get('results') is not None
     return jsonify({'success': True, 'state': state})
+
+
+@mass_bp.route('/mass/export', methods=['GET'])
+def api_mass_export():
+    try:
+        results = MASS_STATE.get('results') or []
+        if not results:
+            return jsonify({'success': False, 'error': 'No hay resultados para exportar'}), 404
+
+        rows = _results_to_rows(results)
+        if not rows:
+            return jsonify({'success': False, 'error': 'No hay horarios generados para exportar'}), 400
+
+        df = pd.DataFrame(rows, columns=EXPORT_COLUMNS)
+        output = BytesIO()
+        df.to_excel(output, index=False)
+        output.seek(0)
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='carga_masiva.xlsx'
+        )
+    except Exception as e:
+        print(f"ERROR exportando XLSX masivo: {e}")
+        return jsonify({'success': False, 'error': 'Error exportando resultados'}), 500
 
 
 @mass_bp.route('/mass/report', methods=['GET'])

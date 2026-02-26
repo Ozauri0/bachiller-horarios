@@ -20,7 +20,7 @@ import {
   ToponConfigMap
 } from '@/lib/types';
 import {
-  downloadMassCsv,
+  downloadMassXlsx,
   exportExcel,
   fetchBachSchedules,
   fetchCourseStructure,
@@ -611,16 +611,16 @@ export default function HomePage() {
                       </button>
                       <button
                         className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
-                        onClick={() => {
+                        onClick={async () => {
                           try {
-                            downloadMassCsv(massResults);
+                            await downloadMassXlsx();
                           } catch (err: any) {
                             showBanner(err.message || 'Sin resultados para descargar', 'info');
                           }
                         }}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 3a1 1 0 011 1v8.586l1.707-1.707a1 1 0 111.414 1.414l-3.5 3.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.414L9 12.586V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                        <span>Descargar CSV</span>
+                        <span>Descargar XLSX</span>
                       </button>
                     </div>
                   </div>
