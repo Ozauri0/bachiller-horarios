@@ -56,12 +56,10 @@ def check_travel_time(block1, block2):
     end2 = time_to_minutes(block2['hora_fin'])
     start1 = time_to_minutes(block1['hora_ini'])
 
+    tiempo_requerido = 30
+    tipo_topon = 'Topón de campus'
     if campus1 == 'SAN_JUAN_PABLO' or campus2 == 'SAN_JUAN_PABLO':
-        tiempo_requerido = 30
         tipo_topon = 'Topón de campus (San Juan Pablo II)'
-    else:
-        tiempo_requerido = 10
-        tipo_topon = 'Topón de campus'
 
     if end1 <= start2:
         if (start2 - end1) >= tiempo_requerido:
@@ -77,7 +75,7 @@ def check_travel_time(block1, block2):
 
 def is_valid_topon(block1, block2, valid_topones):
     if not valid_topones:
-        return False, None
+        return False, None, None, None
 
     bach_block = None
     other_block = None
@@ -89,7 +87,7 @@ def is_valid_topon(block1, block2, valid_topones):
         bach_block = block2
         other_block = block1
     else:
-        return False, None
+        return False, None, None, None
 
     for _, topon in valid_topones.items():
         if (int(topon['section']) == int(bach_block['seccion']) and
@@ -106,12 +104,12 @@ def is_valid_topon(block1, block2, valid_topones):
                 other_end = time_to_minutes(other_block['hora_fin'])
 
                 if other_start <= bach_start and other_end >= bach_end:
-                    return True, 'completo'
-                return True, 'parcial'
+                    return True, 'completo', bach_block, other_block
+                return True, 'parcial', bach_block, other_block
 
-            return True, 'parcial'
+            return True, 'parcial', bach_block, other_block
 
-    return False, None
+    return False, None, None, None
 
 
 def is_valid_combination(sections_blocks, valid_topones=None):
@@ -122,10 +120,11 @@ def is_valid_combination(sections_blocks, valid_topones=None):
     conflicts = []
     valid_topones_found = []
 
+    bach_topon_tracker = {}
     for i in range(len(all_blocks)):
         for j in range(i + 1, len(all_blocks)):
             if blocks_overlap(all_blocks[i], all_blocks[j]):
-                is_valid, topon_type = is_valid_topon(all_blocks[i], all_blocks[j], valid_topones)
+                is_valid, topon_type, bach_block, other_block = is_valid_topon(all_blocks[i], all_blocks[j], valid_topones)
                 if is_valid:
                     valid_topones_found.append({
                         'type': 'valid_topon',
@@ -134,6 +133,20 @@ def is_valid_combination(sections_blocks, valid_topones=None):
                         'block2': all_blocks[j],
                         'message': f"Topón válido ({topon_type}): {all_blocks[i]['curso']} y {all_blocks[j]['curso']} el {all_blocks[i]['dia']}"
                     })
+                    if bach_block:
+                        tracker_key = (
+                            str(bach_block['curso']),
+                            str(bach_block.get('seccion', '')),
+                            str(bach_block['dia']),
+                            str(bach_block['hora_ini']),
+                            str(bach_block['hora_fin']),
+                            str(bach_block.get('campus', ''))
+                        )
+                        tracker = bach_topon_tracker.setdefault(tracker_key, {
+                            'block': bach_block,
+                            'others': []
+                        })
+                        tracker['others'].append(other_block)
                 else:
                     conflicts.append({
                         'type': 'overlap',
@@ -150,6 +163,19 @@ def is_valid_combination(sections_blocks, valid_topones=None):
                         'block2': all_blocks[j],
                         'message': travel_msg
                     })
+
+    for tracker in bach_topon_tracker.values():
+        if len(tracker['others']) > 1:
+            other_descriptions = [
+                f"{other['curso']} ({other['hora_ini']}-{other['hora_fin']})"
+                for other in tracker['others']
+            ]
+            unique_others = ', '.join(dict.fromkeys(other_descriptions))
+            conflicts.append({
+                'type': 'triple_topon',
+                'block': tracker['block'],
+                'message': f"Triple topón: BACH1121 se cruza con {unique_others} el {tracker['block']['dia']} — no hay tiempo para asistir a todas las clases"
+            })
 
     return len(conflicts) == 0, conflicts, valid_topones_found
 
