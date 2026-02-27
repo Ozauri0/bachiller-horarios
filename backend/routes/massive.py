@@ -1,5 +1,6 @@
 import threading
 import json
+import math
 from datetime import datetime
 from io import BytesIO
 import pandas as pd
@@ -38,6 +39,24 @@ EXPORT_COLUMNS = [
     'SEMESTRE',
     'PLAN'
 ]
+
+
+def _sanitize_for_json(value):
+    if isinstance(value, dict):
+        return {k: _sanitize_for_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_for_json(v) for v in value]
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+    if isinstance(value, (int, bool, type(None), str)):
+        return value
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    return value
 
 
 def _apply_sections_capacity(sections, caps, delta):
@@ -93,13 +112,7 @@ def _results_to_rows(results):
 def _is_schedule_valid_for_summary(entry):
     if not entry:
         return False
-    if entry.get('status') != 'con_horario':
-        return False
-    if entry.get('has_conflicts'):
-        return False
-    if entry.get('conflict_types'):
-        return False
-    return True
+    return entry.get('status') == 'con_horario'
 
 
 def _build_massive_summary(results):
@@ -158,22 +171,27 @@ def _run_rebalance_job(target_registros, prev_results, base_df):
         capacity_stats = _build_capacity_stats(capacity_report)
         summary = _build_massive_summary(combined)
 
+        combined_clean = _sanitize_for_json(combined)
+        capacity_report_clean = _sanitize_for_json(capacity_report)
+        capacity_stats_clean = _sanitize_for_json(capacity_stats)
+        summary_clean = _sanitize_for_json(summary)
+
         payload = {
             'timestamp': datetime.utcnow().isoformat() + 'Z',
-            'summary': summary,
-            'capacity_report': capacity_report,
-            'capacity_stats': capacity_stats
+            'summary': summary_clean,
+            'capacity_report': capacity_report_clean,
+            'capacity_stats': capacity_stats_clean
         }
         _save_capacity_report(payload)
 
         MASS_STATE.update({
             'running': False,
-            'results': combined,
-            'summary': summary,
+            'results': combined_clean,
+            'summary': summary_clean,
             'error': None,
             'phase': 'completado',
-            'capacity_report': capacity_report,
-            'capacity_stats': capacity_stats,
+            'capacity_report': capacity_report_clean,
+            'capacity_stats': capacity_stats_clean,
             'current': total,
             'total': total,
             'current_name': '',
@@ -196,9 +214,10 @@ def _run_rebalance_job(target_registros, prev_results, base_df):
 
 def _save_capacity_report(payload):
     try:
+        payload = _sanitize_for_json(payload)
         path = DATA_DIR / 'massive_report.json'
         with open(path, 'w', encoding='utf-8') as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
+            json.dump(payload, f, ensure_ascii=False, indent=2, allow_nan=False)
     except Exception as exc:
         print(f"WARN: no se pudo guardar massive_report.json: {exc}")
 
@@ -218,20 +237,25 @@ def api_mass_generate():
         summary = _build_massive_summary(results)
         capacity_stats = _build_capacity_stats(capacity_report)
 
+        results_clean = _sanitize_for_json(results)
+        capacity_report_clean = _sanitize_for_json(capacity_report)
+        capacity_stats_clean = _sanitize_for_json(capacity_stats)
+        summary_clean = _sanitize_for_json(summary)
+
         payload = {
             'timestamp': datetime.utcnow().isoformat() + 'Z',
-            'summary': summary,
-            'capacity_report': capacity_report,
-            'capacity_stats': capacity_stats
+            'summary': summary_clean,
+            'capacity_report': capacity_report_clean,
+            'capacity_stats': capacity_stats_clean
         }
         _save_capacity_report(payload)
 
         return jsonify({
             'success': True,
-            'summary': summary,
-            'results': results,
-            'capacity_report': capacity_report,
-            'capacity_stats': capacity_stats
+            'summary': summary_clean,
+            'results': results_clean,
+            'capacity_report': capacity_report_clean,
+            'capacity_stats': capacity_stats_clean
         })
     except Exception as e:
         print(f"ERROR en carga masiva: {str(e)}")
@@ -267,22 +291,27 @@ def _run_massive_job(alumnos_df, base_df):
         summary = _build_massive_summary(results)
         capacity_stats = _build_capacity_stats(capacity_report)
 
+        results_clean = _sanitize_for_json(results)
+        capacity_report_clean = _sanitize_for_json(capacity_report)
+        capacity_stats_clean = _sanitize_for_json(capacity_stats)
+        summary_clean = _sanitize_for_json(summary)
+
         payload = {
             'timestamp': datetime.utcnow().isoformat() + 'Z',
-            'summary': summary,
-            'capacity_report': capacity_report,
-            'capacity_stats': capacity_stats
+            'summary': summary_clean,
+            'capacity_report': capacity_report_clean,
+            'capacity_stats': capacity_stats_clean
         }
         _save_capacity_report(payload)
 
         MASS_STATE.update({
             'running': False,
-            'results': results,
-            'summary': summary,
+            'results': results_clean,
+            'summary': summary_clean,
             'error': None,
             'phase': 'completado',
-            'capacity_report': capacity_report,
-            'capacity_stats': capacity_stats,
+            'capacity_report': capacity_report_clean,
+            'capacity_stats': capacity_stats_clean,
             'rebalanced_count': 0
         })
     except Exception as e:
@@ -349,7 +378,8 @@ def api_mass_progress():
     state = MASS_STATE.copy()
     state['remaining'] = max(state.get('total', 0) - state.get('current', 0), 0)
     state['done'] = not state.get('running') and state.get('results') is not None
-    return jsonify({'success': True, 'state': state})
+    clean_state = _sanitize_for_json(state)
+    return jsonify({'success': True, 'state': clean_state})
 
 
 @mass_bp.route('/mass/export', methods=['GET'])
@@ -479,4 +509,120 @@ def api_mass_report():
         return jsonify({'success': False, 'error': 'Sin reportes previos'}), 404
     except Exception as e:
         print(f"ERROR leyendo massive_report.json: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@mass_bp.route('/mass/student/save', methods=['POST'])
+def api_mass_student_save():
+    try:
+        data = request.get_json(silent=True) or {}
+        registro = str(data.get('registro', '')).strip()
+        if not registro:
+            return jsonify({'success': False, 'error': 'Falta registro'}), 400
+
+        schedule = data.get('schedule') or {}
+        sections = schedule.get('sections') or []
+        blocks = schedule.get('blocks') or []
+        courses = data.get('courses') or []
+        if not sections:
+            return jsonify({'success': False, 'error': 'Faltan secciones para guardar'}), 400
+
+        alumnos_df = load_alumnos_dataframe()
+        alumnos_df['REGISTRO'] = alumnos_df['REGISTRO'].astype(str)
+
+        existing_rows = alumnos_df[alumnos_df['REGISTRO'] == registro]
+        if not existing_rows.empty:
+            base = existing_rows.iloc[0].to_dict()
+        else:
+            # Fallback vacío
+            base = {
+                'RUT': '',
+                'DV': '',
+                'REGISTRO': registro,
+                'NOMBRE': '',
+                'APELLIDO PATERNO': '',
+                'APELLIDO MATERNO': ''
+            }
+
+        # Usar rut/nombre si llegan en payload para completar faltantes
+        rut_payload = (data.get('rut') or '').strip()
+        if rut_payload and '-' in rut_payload:
+            rut_num, dv_val = rut_payload.split('-', 1)
+            base['RUT'] = rut_num.strip()
+            base['DV'] = dv_val.strip()
+        elif rut_payload:
+            base['RUT'] = rut_payload
+
+        nombre_payload = (data.get('nombre') or '').strip()
+        if nombre_payload:
+            base['NOMBRE'] = nombre_payload
+
+        # Construir filas nuevas para este registro
+        new_rows = []
+        for sec in sections:
+            row = base.copy()
+            row['REGISTRO'] = registro
+            row['CODIGO ASIGNATURA'] = sec.get('course') or sec.get('code') or ''
+            row['NOMBRE ASIGNATURA'] = sec.get('name', '')
+            row['SECCION'] = sec.get('section')
+            row['GRUPO'] = sec.get('group')
+            row['SEMESTRE'] = sec.get('semestre')
+            row['PLAN'] = sec.get('plan')
+            new_rows.append(row)
+
+        # Reemplazar filas previas del registro por las nuevas
+        remaining_df = alumnos_df[alumnos_df['REGISTRO'] != registro]
+        updated_df = pd.concat([remaining_df, pd.DataFrame(new_rows)], ignore_index=True)
+
+        # Conservar orden de columnas si es posible
+        try:
+            updated_df = updated_df[alumnos_df.columns]
+        except Exception:
+            pass
+
+        save_path = DATA_DIR / 'alumnos.xlsx'
+        updated_df.to_excel(save_path, index=False)
+
+        # Actualizar el estado en memoria para export/xlsx
+        results = MASS_STATE.get('results') or []
+        updated_results = []
+        found = False
+        status = 'con_horario'
+        if schedule.get('has_conflicts') or schedule.get('conflict_types'):
+            status = 'no_valido'
+        entry = {
+            'registro': registro,
+            'rut': data.get('rut') or base.get('RUT') or '',
+            'nombre': data.get('nombre') or base.get('NOMBRE') or '',
+            'cursos': courses,
+            'status': status,
+            'message': 'Horario guardado manualmente',
+            'sections': schedule.get('sections', []),
+            'blocks': blocks,
+            'courses_detail': schedule.get('sections', []),
+            'has_conflicts': schedule.get('has_conflicts', False),
+            'conflict_types': schedule.get('conflict_types', []),
+            'valid_topones': schedule.get('valid_topones', []),
+            'valid_topon_types': schedule.get('valid_topon_types', []),
+            'has_valid_topones': schedule.get('has_valid_topones', False),
+            'conflicts': schedule.get('conflicts', [])
+        }
+
+        for r in results:
+            if str(r.get('registro', '')).strip() == registro:
+                updated_results.append(entry)
+                found = True
+            else:
+                updated_results.append(r)
+        if not found:
+            updated_results.append(entry)
+
+        MASS_STATE['results'] = updated_results
+        MASS_STATE['summary'] = _build_massive_summary(updated_results)
+
+        return jsonify({'success': True, 'result': entry})
+    except Exception as e:
+        print(f"ERROR guardando alumno masivo: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500

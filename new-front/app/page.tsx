@@ -34,7 +34,8 @@ import {
   rebalanceMassive,
   runMassiveGeneration,
   saveConfig,
-  saveExcelData
+  saveExcelData,
+  saveMassStudentSchedule
 } from '@/lib/api';
 
 type TabKey = 'horarios' | 'config' | 'datos' | 'carga';
@@ -106,6 +107,15 @@ export default function HomePage() {
 
   const [massModalOpen, setMassModalOpen] = useState(false);
   const [massModalPos, setMassModalPos] = useState<ModalPos>({ x: typeof window !== 'undefined' ? window.innerWidth / 2 : 600, y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400 });
+
+  // Edición individual en modal de carga masiva
+  const [massEditCourses, setMassEditCourses] = useState<CourseOption[]>([]);
+  const [massEditSchedules, setMassEditSchedules] = useState<ScheduleResult[]>([]);
+  const [massEditScheduleIndex, setMassEditScheduleIndex] = useState(0);
+  const [massEditMessage, setMassEditMessage] = useState('');
+  const [massEditPanelOpen, setMassEditPanelOpen] = useState(false);
+  const [massEditSaving, setMassEditSaving] = useState(false);
+  const [massEditDirty, setMassEditDirty] = useState(false);
 
   const pollerRef = useRef<NodeJS.Timeout | null>(null);
   const draggingRef = useRef(false);
@@ -519,19 +529,7 @@ export default function HomePage() {
   const applyMassFilters = (text: string, status: string) => {
     setMassFilterText(text);
     setMassFilterStatus(status);
-    const q = text.toLowerCase();
-    if (!q && !status) {
-      setMassFiltered(null);
-      return;
-    }
-    const filtered = massResults.filter(r => {
-      const matchText = !q ||
-        (r.nombre && r.nombre.toLowerCase().includes(q)) ||
-        (r.rut && r.rut.toLowerCase().includes(q)) ||
-        (r.registro && r.registro.toLowerCase().includes(q));
-      const matchStatus = !status || r.status === status;
-      return matchText && matchStatus;
-    });
+    const filtered = filterMassResults(massResults, text, status);
     setMassFiltered(filtered);
   };
 
@@ -544,10 +542,59 @@ export default function HomePage() {
       const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
       setMassModalPos({ x: vw / 2, y: vh / 2 });
       setMassModalOpen(true);
+      const current = massSchedulesList[idx];
+      const selectedCourses = (current.sections || current.courses_detail || []).map(sec => {
+        const found = courses.find(c => c.asig_codigo === sec.course);
+        return { code: sec.course, name: found?.asig_nombre || sec.name };
+      });
+      setMassEditCourses(selectedCourses);
+      setMassEditSchedules([]);
+      setMassEditScheduleIndex(0);
+      setMassEditMessage('');
+      setMassEditDirty(false);
+      setMassEditPanelOpen(false);
     }
   };
 
   const massSchedule = massSchedulesList[massScheduleIndex];
+  const massModalSchedule = massEditSchedules[massEditScheduleIndex] || (massSchedule
+    ? {
+        ...massSchedule,
+        blocks: massSchedule.blocks || [],
+        sections: massSchedule.sections || massSchedule.courses_detail || []
+      }
+    : undefined);
+
+  const recomputeMassSummary = (results: MassResult[]): MassSummary => {
+    const total = results.length;
+    const valid = results.filter(r => r.status === 'con_horario').length;
+    const topon = results.filter(r => r.has_valid_topones).length;
+    return {
+      total_alumnos: total,
+      con_horario: valid,
+      sin_horario: total - valid,
+      con_topon_valido: topon
+    };
+  };
+
+  const filterMassResults = (list: MassResult[], text: string, status: string) => {
+    const q = (text || '').toLowerCase();
+    if (!q && !status) return null;
+    return list.filter(r => {
+      const matchText = !q ||
+        (r.nombre && r.nombre.toLowerCase().includes(q)) ||
+        (r.rut && r.rut.toLowerCase().includes(q)) ||
+        (r.registro && r.registro.toLowerCase().includes(q));
+      const matchStatus = (() => {
+        if (!status) return true;
+        if (status === 'topon_valido') {
+          return r.status === 'con_horario' && Boolean(r.has_valid_topones);
+        }
+        return r.status === status;
+      })();
+      return matchText && matchStatus;
+    });
+  };
 
   const stopDrag = () => {
     draggingRef.current = false;
@@ -592,7 +639,78 @@ export default function HomePage() {
       rose: 'bg-rose-500/15 text-rose-200 border border-rose-400/30',
       amber: 'bg-amber-500/15 text-amber-200 border border-amber-400/30'
     };
-    return <span className={`px-3 py-1 rounded-full text-xs font-semibold ${map[tone]}`}>{children}</span>;
+    return <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${map[tone]}`}>{children}</span>;
+  };
+
+  const massRecalc = async () => {
+    if (!massSchedule) return;
+    const codes = massEditCourses.map(c => c.code).filter(Boolean);
+    if (codes.length === 0) {
+      setMassEditMessage('Selecciona al menos un curso');
+      return;
+    }
+    try {
+      setMassEditMessage('');
+      const { schedules: generated, message } = await generateSchedules({
+        courses: codes,
+        groupConfigs,
+        validTopones: toponConfigs
+      });
+      setMassEditSchedules(generated || []);
+      setMassEditScheduleIndex(0);
+      setMassEditMessage(message || (generated && generated.length > 0 ? 'Horario recalculado' : 'Sin combinaciones válidas'));
+      setMassEditDirty(true);
+    } catch (err: any) {
+      console.error(err);
+      setMassEditMessage(err.message || 'Error recalculando horario');
+    }
+  };
+
+  const massSave = async () => {
+    if (!massSchedule || !massModalSchedule) return;
+    try {
+      setMassEditSaving(true);
+      await saveMassStudentSchedule({
+        registro: massSchedule.registro || '',
+        rut: massSchedule.rut,
+        nombre: massSchedule.nombre,
+        courses: massEditCourses.map(c => c.code),
+        schedule: massModalSchedule
+      });
+
+      // Actualizar tabla localmente para reflejar cambios inmediatos
+      setMassResults(prev => {
+        const updated = prev.map(r => {
+          if (r.registro !== massSchedule.registro) return r;
+          return {
+            ...r,
+            status: 'con_horario',
+            blocks: massModalSchedule.blocks,
+            sections: massModalSchedule.sections,
+            courses_detail: massModalSchedule.sections,
+            cursos: massEditCourses.map(c => c.code),
+            has_valid_topones: massModalSchedule.has_valid_topones,
+            valid_topones: massModalSchedule.valid_topones,
+            valid_topon_types: massModalSchedule.valid_topon_types,
+            has_conflicts: massModalSchedule.has_conflicts,
+            conflict_types: massModalSchedule.conflict_types,
+            conflicts: massModalSchedule.conflicts
+          };
+        });
+        const summary = recomputeMassSummary(updated);
+        setMassSummary(summary);
+        const filtered = filterMassResults(updated, massFilterText, massFilterStatus);
+        setMassFiltered(filtered);
+        return updated;
+      });
+      setMassEditDirty(false);
+      showBanner('Horario guardado', 'success');
+    } catch (err: any) {
+      console.error(err);
+      showBanner(err.message || 'Error guardando horario', 'error');
+    } finally {
+      setMassEditSaving(false);
+    }
   };
 
   return (
@@ -864,7 +982,7 @@ export default function HomePage() {
                   <option value="">Todos los estados</option>
                   <option value="con_horario">Con horario</option>
                   <option value="no_valido">No válido</option>
-                  <option value="sin_horario">Sin horario</option>
+                  <option value="topon_valido">Topón válido</option>
                 </select>
               </div>
 
@@ -887,10 +1005,10 @@ export default function HomePage() {
                     ) : (
                       (massFiltered ?? massResults).map(r => {
                         const badge = (() => {
+                          if (r.status === 'con_horario' && r.has_valid_topones) return <Badge tone="amber">Topón válido</Badge>;
                           if (r.has_conflicts || r.status === 'no_valido') return <Badge tone="rose">No válido</Badge>;
-                          if ((r as any).over_capacity) return <Badge tone="amber">Sobrecupo</Badge>;
                           if (r.status === 'con_horario') return <Badge tone="emerald">Generado</Badge>;
-                          return <Badge tone="rose">Sin horario</Badge>;
+                          return <Badge tone="rose">No válido</Badge>;
                         })();
                         const hasSchedule = r.blocks && r.blocks.length > 0;
                         return (
@@ -1197,7 +1315,7 @@ export default function HomePage() {
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => { stopDrag(); setMassModalOpen(false); }} />
           <div
-            className="absolute w-[min(95vw,1280px)] max-h-[95vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/95 shadow-2xl flex flex-col"
+            className="absolute w-[min(95vw,1400px)] max-h-[95vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/95 shadow-2xl flex flex-col"
             style={{ left: massModalPos.x, top: massModalPos.y, transform: 'translate(-50%, -50%)' }}
           >
             <div
@@ -1214,6 +1332,28 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
+                <button
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-white"
+                  onClick={() => { setMassEditPanelOpen(p => !p); }}
+                >
+                  Modificar cursos
+                </button>
+                <button
+                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                  onClick={massRecalc}
+                  disabled={massEditCourses.length === 0}
+                >
+                  Recalcular horario
+                </button>
+                {massEditDirty && (
+                  <button
+                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                    onClick={massSave}
+                    disabled={massEditSaving}
+                  >
+                    {massEditSaving ? 'Guardando...' : 'Guardar'}
+                  </button>
+                )}
                 <button className="p-2 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors" disabled={massScheduleIndex === 0} onClick={() => setMassScheduleIndex(i => Math.max(i - 1, 0))}>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                 </button>
@@ -1227,22 +1367,119 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="p-4 flex-1 overflow-auto">
-              <ScheduleGrid
-                schedule={{
-                  ...massSchedule,
-                  has_conflicts: massSchedule.has_conflicts,
-                  conflict_types: massSchedule.conflict_types,
-                  conflicts: massSchedule.conflicts,
-                  has_valid_topones: massSchedule.has_valid_topones,
-                  valid_topones: massSchedule.valid_topones,
-                  valid_topon_types: massSchedule.valid_topon_types,
-                  blocks: massSchedule.blocks || [],
-                  sections: massSchedule.sections || massSchedule.courses_detail || []
-                }}
-                courses={(massSchedule.sections || []).map(s => ({ code: s.course }))}
-                header={<div className="flex flex-wrap gap-2">{(massSchedule.courses_detail || massSchedule.sections || []).map((c, idx) => <Badge key={`${c.course}-${idx}`} tone="indigo">{c.course} • Sec {c.section} Grp {c.group}</Badge>)}</div>}
-              />
+            <div className="flex-1 overflow-auto flex">
+              <div className="p-4 flex-1 overflow-auto">
+                {massEditMessage && <p className="text-xs text-slate-400 mb-2">{massEditMessage}</p>}
+                {massModalSchedule ? (
+                  <ScheduleGrid
+                    schedule={massModalSchedule}
+                    courses={(massModalSchedule.sections || []).map(s => ({ code: s.course }))}
+                    header={<div className="flex flex-wrap gap-2">{(massModalSchedule.sections || []).map((c, idx) => <Badge key={`${c.course}-${idx}`} tone="indigo">{c.course} • Sec {c.section} Grp {c.group}</Badge>)}</div>}
+                  />
+                ) : (
+                  <p className="text-slate-400 text-sm">Sin horario disponible</p>
+                )}
+              </div>
+
+              {massEditPanelOpen && (
+                <div className="w-full max-w-sm border-l border-slate-800 bg-slate-900/80 p-4 overflow-auto space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-white">Cursos del alumno</h3>
+                    <button className="text-xs text-slate-400" onClick={() => setMassEditPanelOpen(false)}>Cerrar</button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Buscar curso..."
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                  <div className="max-h-56 overflow-auto space-y-2 pr-1">
+                    {displayedCourses.map(course => {
+                      const selected = massEditCourses.some(c => c.code === course.asig_codigo);
+                      return (
+                        <div key={course.asig_codigo} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm ${selected ? 'border-indigo-400/60 bg-indigo-500/10' : 'border-slate-800 bg-slate-900/40'}`}>
+                          <div>
+                            <p className="font-semibold text-white">{course.asig_codigo}</p>
+                            <p className="text-xs text-slate-400">{course.asig_nombre}</p>
+                          </div>
+                          <button
+                            className="text-xs font-semibold px-2 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
+                            onClick={() => {
+                              if (selected) return;
+                              setMassEditCourses(prev => [...prev, { code: course.asig_codigo, name: course.asig_nombre }]);
+                              setMassEditSchedules([]);
+                              setMassEditScheduleIndex(0);
+                              setMassEditDirty(false);
+                              setMassEditMessage('Recalcula para aplicar los nuevos cursos');
+                            }}
+                            disabled={selected}
+                          >
+                            {selected ? 'Agregado' : 'Agregar'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-400">Cursos seleccionados ({massEditCourses.length})</p>
+                    {massEditCourses.length === 0 ? (
+                      <p className="text-slate-500 text-sm">Sin cursos</p>
+                    ) : (
+                      massEditCourses.map(course => (
+                        <div key={course.code} className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2">
+                          <div>
+                            <p className="text-sm font-semibold">{course.code}</p>
+                            <p className="text-xs text-slate-400">{course.name}</p>
+                          </div>
+                          <button
+                            className="text-xs text-rose-300 hover:text-rose-200"
+                            onClick={() => {
+                              setMassEditCourses(prev => prev.filter(c => c.code !== course.code));
+                              setMassEditSchedules([]);
+                              setMassEditScheduleIndex(0);
+                              setMassEditDirty(false);
+                              setMassEditMessage('Recalcula para aplicar los nuevos cursos');
+                            }}
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                      onClick={massRecalc}
+                      disabled={massEditCourses.length === 0}
+                    >
+                      Recalcular con cursos
+                    </button>
+                    {massEditSchedules.length > 0 && (
+                      <div className="flex items-center justify-between text-xs text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2">
+                        <span>{massEditScheduleIndex + 1} / {massEditSchedules.length}</span>
+                        <div className="space-x-2">
+                          <button
+                            className="px-2 py-1 bg-slate-700 rounded disabled:opacity-40"
+                            disabled={massEditScheduleIndex === 0}
+                            onClick={() => setMassEditScheduleIndex(i => Math.max(i - 1, 0))}
+                          >
+                            Prev
+                          </button>
+                          <button
+                            className="px-2 py-1 bg-slate-700 rounded disabled:opacity-40"
+                            disabled={massEditScheduleIndex >= massEditSchedules.length - 1}
+                            onClick={() => setMassEditScheduleIndex(i => Math.min(i + 1, massEditSchedules.length - 1))}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
