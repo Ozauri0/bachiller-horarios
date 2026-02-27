@@ -109,7 +109,7 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
     # Cache curso metadata (nombre/semestre/plan) per unique course set to avoid recomputing per alumno
     course_meta_cache = {}
 
-    results = []
+    sin_horario_results = []
     grouped = alumnos_df.groupby('REGISTRO')
     total = len(grouped)
 
@@ -149,7 +149,7 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
             student_df, missing = build_student_df(base_df, course_codes)
             student_df_cache[course_codes_key] = (student_df, missing)
         if missing:
-            results.append({
+            sin_horario_results.append({
                 'registro': registro_val,
                 'rut': rut,
                 'rut_num': rut_num,
@@ -184,8 +184,9 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
         chosen = None
         used_topon = None
 
+        # Priorizar horarios SIN conflictos que tengan cupo
         for sched in candidate_schedules:
-            if schedule_capacity_ok(sched, remaining_caps):
+            if not sched.get('has_conflicts') and schedule_capacity_ok(sched, remaining_caps):
                 chosen = sched
                 used_topon = sched.get('has_valid_topones')
                 break
@@ -334,7 +335,7 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
                 apply_capacity(old_sched, remaining_caps, -1)
 
     # Limpiar y retornar resultados finales
-    results = []
+    results = list(sin_horario_results)
     for entry in student_entries:
         entry.pop('candidates', None)
         results.append(entry)

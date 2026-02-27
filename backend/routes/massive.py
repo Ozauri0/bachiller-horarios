@@ -118,7 +118,8 @@ def _is_schedule_valid_for_summary(entry):
 def _build_massive_summary(results):
     total = len(results)
     valid = sum(1 for r in results if _is_schedule_valid_for_summary(r))
-    valid_topon = sum(1 for r in results if r.get('has_valid_topones'))
+    # Solo contar topón válido si el horario es realmente válido (sin conflictos adicionales)
+    valid_topon = sum(1 for r in results if r.get('has_valid_topones') and r.get('status') == 'con_horario' and not r.get('has_conflicts'))
     return {
         'total_alumnos': total,
         'con_horario': valid,
@@ -265,7 +266,8 @@ def api_mass_generate():
 
 
 def _progress_cb(idx, total, name, registro, phase='generando'):
-    MASS_STATE['current'] = idx + 1
+    # Clamp to avoid showing "total+1" when we emit the final adjustment phase
+    MASS_STATE['current'] = min(idx + 1, total)
     MASS_STATE['total'] = total
     MASS_STATE['current_name'] = name
     MASS_STATE['current_registro'] = registro
@@ -553,8 +555,10 @@ def api_mass_student_save():
         elif rut_payload:
             base['RUT'] = rut_payload
 
+        # No sobrescribir el nombre si ya existe: el payload suele traer nombre completo (con apellidos)
+        # y generaría duplicaciones al volver a concatenar nombre + apellidos en el reporte.
         nombre_payload = (data.get('nombre') or '').strip()
-        if nombre_payload:
+        if nombre_payload and not str(base.get('NOMBRE', '')).strip():
             base['NOMBRE'] = nombre_payload
 
         # Construir filas nuevas para este registro
