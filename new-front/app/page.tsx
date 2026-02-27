@@ -916,45 +916,6 @@ export default function HomePage() {
                 </table>
               </div>
 
-              {massSchedule && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between glass rounded-2xl p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-indigo-500 rounded-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold">Horario generado</h2>
-                        <p className="text-slate-400 text-xs">Alumno: {massSchedule.nombre || '—'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button className="p-2 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors" disabled={massScheduleIndex === 0} onClick={() => setMassScheduleIndex(i => Math.max(i - 1, 0))}>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-                      </button>
-                      <span className="text-sm font-medium px-4 py-2 bg-slate-800 rounded-lg border border-slate-700">{massScheduleIndex + 1} / {massSchedulesList.length}</span>
-                      <button className="p-2 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors" disabled={massScheduleIndex >= massSchedulesList.length - 1} onClick={() => setMassScheduleIndex(i => Math.min(i + 1, massSchedulesList.length - 1))}>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                      </button>
-                    </div>
-                  </div>
-                  <ScheduleGrid
-                    schedule={{
-                      ...massSchedule,
-                      has_conflicts: massSchedule.has_conflicts,
-                      conflict_types: massSchedule.conflict_types,
-                      conflicts: massSchedule.conflicts,
-                      has_valid_topones: massSchedule.has_valid_topones,
-                      valid_topones: massSchedule.valid_topones,
-                      valid_topon_types: massSchedule.valid_topon_types,
-                      blocks: massSchedule.blocks || [],
-                      sections: massSchedule.sections || massSchedule.courses_detail || []
-                    }}
-                    courses={(massSchedule.sections || []).map(s => ({ code: s.course }))}
-                    header={<div className="flex flex-wrap gap-2">{(massSchedule.courses_detail || massSchedule.sections || []).map((c, idx) => <Badge key={`${c.course}-${idx}`} tone="indigo">{c.course} • Sec {c.section} Grp {c.group}</Badge>)}</div>}
-                  />
-                </div>
-              )}
             </section>
           )}
 
