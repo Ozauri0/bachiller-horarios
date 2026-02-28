@@ -33,6 +33,7 @@ import {
   rebalanceMassive,
   runMassiveGeneration,
   saveConfig,
+  uploadAlumnos,
   saveExcelData,
   saveMassStudentSchedule
 } from '@/lib/api';
@@ -244,6 +245,17 @@ export default function HomePage() {
   const showBanner = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
     setBanner({ text, type });
     setTimeout(() => setBanner(null), 3200);
+  };
+
+  const uploadAlumnosFile = async (file: File) => {
+    try {
+      const res = await uploadAlumnos(file);
+      showBanner(res?.message || 'Excel de alumnos actualizado', 'success');
+    } catch (err: any) {
+      console.error(err);
+      showBanner(err?.message || 'Error subiendo alumnos', 'error');
+      throw err;
+    }
   };
 
   const addCourse = (course: Course) => {
@@ -615,6 +627,7 @@ export default function HomePage() {
               addToponConfig={addToponConfig}
               removeToponConfig={removeToponConfig}
               saveConfigHandler={saveConfigHandler}
+              uploadAlumnos={uploadAlumnosFile}
             />
           )}
 

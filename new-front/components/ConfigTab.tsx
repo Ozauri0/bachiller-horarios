@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState } from 'react';
 import { Course, CourseStructure, GroupConfigMap, ToponConfigMap, BachSchedule } from '@/lib/types';
 
 interface ConfigTabProps {
@@ -22,6 +23,7 @@ interface ConfigTabProps {
   addToponConfig: () => void;
   removeToponConfig: (key: string) => void;
   saveConfigHandler: () => void;
+  uploadAlumnos: (file: File) => Promise<void>;
 }
 
 export default function ConfigTab({
@@ -44,9 +46,26 @@ export default function ConfigTab({
   addToponConfig,
   removeToponConfig,
   saveConfigHandler,
+  uploadAlumnos,
 }: ConfigTabProps) {
+  const [alumnosFile, setAlumnosFile] = useState<File | null>(null);
+  const [uploadingAlumnos, setUploadingAlumnos] = useState(false);
+
   const courseStruct = configCourse ? courseStructures[configCourse] || [] : [];
   const availableGroups = courseStruct.find(s => `${s.section}` === configSection)?.groups || [];
+
+  const handleUploadAlumnos = async () => {
+    if (!alumnosFile) return;
+    try {
+      setUploadingAlumnos(true);
+      await uploadAlumnos(alumnosFile);
+      setAlumnosFile(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploadingAlumnos(false);
+    }
+  };
 
   return (
     <section className="grid lg:grid-cols-2 gap-6">
@@ -154,6 +173,31 @@ export default function ConfigTab({
         <button onClick={saveConfigHandler} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60" disabled={savingConfig}>
           {savingConfig ? 'Guardando...' : 'Guardar topones'}
         </button>
+      </div>
+
+      <div className="glass rounded-2xl p-5 space-y-4 lg:col-span-2">
+        <div>
+          <h2 className="text-xl font-semibold">Excel de alumnos</h2>
+          <p className="text-sm text-slate-400">Sube el archivo alumnos.xlsx que se usará en el servidor. Si subes uno nuevo, reemplaza al anterior.</p>
+        </div>
+        <div className="flex flex-col md:flex-row gap-3 md:items-end">
+          <label className="flex-1">
+            <span className="text-xs text-slate-400">Archivo</span>
+            <div className="mt-1 flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2">
+              <div className="flex-1 truncate text-sm text-slate-200">{alumnosFile ? alumnosFile.name : 'Selecciona alumnos.xlsx'}</div>
+              <input type="file" accept=".xlsx,.xls" className="hidden" id="alumnos-upload" onChange={e => setAlumnosFile(e.target.files?.[0] || null)} />
+              <label htmlFor="alumnos-upload" className="cursor-pointer text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white border border-slate-700">Elegir</label>
+            </div>
+          </label>
+          <button
+            onClick={handleUploadAlumnos}
+            disabled={!alumnosFile || uploadingAlumnos}
+            className="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-60"
+          >
+            {uploadingAlumnos ? 'Subiendo...' : 'Subir y reemplazar'}
+          </button>
+        </div>
+        <p className="text-xs text-slate-500">El archivo se guarda como data/alumnos.xlsx y reemplaza cualquier versión anterior.</p>
       </div>
     </section>
   );

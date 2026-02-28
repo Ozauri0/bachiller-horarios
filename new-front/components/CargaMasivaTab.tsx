@@ -115,11 +115,6 @@ export default function CargaMasivaTab({
             <h2 className="text-xl font-semibold">Carga masiva de horarios</h2>
             <p className="text-slate-400 text-sm">Sube alumnos.xlsx para calcular el horario óptimo automáticamente.</p>
             <div className="flex flex-wrap gap-3">
-              <label className="bg-indigo-600 hover:bg-indigo-500 cursor-pointer text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
-                <span>Subir alumnos.xlsx</span>
-                <input type="file" className="hidden" accept=".xlsx,.xls" onChange={e => e.target.files?.[0] && runMassive(e.target.files[0])} />
-              </label>
               <button
                 className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
                 onClick={() => runMassive()}
