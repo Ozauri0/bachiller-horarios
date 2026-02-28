@@ -604,10 +604,33 @@ def api_mass_student_save():
         status = 'con_horario'
         if schedule.get('has_conflicts') or schedule.get('conflict_types'):
             status = 'no_valido'
+
+        # Datos personales para no perderlos en export
+        rut_num_val = base.get('RUT') or ''
+        dv_val = base.get('DV') or ''
+        nombre_pila_val = base.get('NOMBRE') or ''
+        ap_pat_val = base.get('APELLIDO PATERNO') or ''
+        ap_mat_val = base.get('APELLIDO MATERNO') or ''
+
+        if nombre_payload and not nombre_pila_val:
+            nombre_pila_val = nombre_payload
+        if rut_payload and '-' in rut_payload and (not rut_num_val or not dv_val):
+            try:
+                rut_num_val, dv_val = rut_payload.split('-', 1)
+                rut_num_val = rut_num_val.strip()
+                dv_val = dv_val.strip()
+            except Exception:
+                pass
+
         entry = {
             'registro': registro,
             'rut': data.get('rut') or base.get('RUT') or '',
+            'rut_num': rut_num_val,
+            'dv': dv_val,
             'nombre': data.get('nombre') or base.get('NOMBRE') or '',
+            'nombre_pila': nombre_pila_val,
+            'apellido_paterno': ap_pat_val,
+            'apellido_materno': ap_mat_val,
             'cursos': courses,
             'status': status,
             'message': 'Horario guardado manualmente',

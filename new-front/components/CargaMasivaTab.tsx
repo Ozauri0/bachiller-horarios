@@ -101,40 +101,47 @@ export default function CargaMasivaTab({
   const showCapacityReport = massHasRun && !massLoading && Boolean(capacityStats) && (hasFinalResults || summary);
   const showSummaryCards = massHasRun && (Boolean(summary) || massLoading);
   const showEmptyState = (!massHasRun && !massLoading) || (massHasRun && !massLoading && !hasFinalResults && !summary);
+  const progressPct = massState?.total ? Math.min(Math.round(((massState.current || 0) / massState.total) * 100), 100) : 0;
 
   return (
-    <section className="space-y-6">
-      <div className="glass rounded-2xl p-6 border-l-4 border-l-indigo-500">
-        <div className="flex flex-col md:flex-row md:items-start md:space-x-4 space-y-4 md:space-y-0">
-          <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400 self-start">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-          </div>
-          <div className="flex-1 space-y-3">
-            <h2 className="text-xl font-semibold">Carga masiva de horarios</h2>
-            <p className="text-slate-400 text-sm">Sube alumnos.xlsx para calcular el horario óptimo automáticamente.</p>
-            <div className="flex flex-wrap gap-3">
+    <section className="space-y-8 max-w-6xl mx-auto w-full">
+      <div className="glass rounded-3xl p-6 md:p-10 relative overflow-hidden border border-slate-800/60">
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-600/10 blur-[100px] rounded-full" />
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-600/10 blur-[100px] rounded-full" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-8">
+          <div className="flex-1 space-y-3 text-center md:text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              {massHasRun ? 'Listo para nueva ejecución' : 'Datos listos para procesar'}
+            </div>
+            <h2 className="text-3xl font-extrabold tracking-tight text-white md:text-4xl">Generación de Horarios</h2>
+            <p className="text-slate-400 max-w-xl text-sm md:text-base leading-relaxed mx-auto md:mx-0">
+              Inicia el cálculo del horario óptimo para todos los alumnos basado en el Excel de alumnos y el consolidado actual.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-3 pt-2">
               <button
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                className="group w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-xl shadow-emerald-600/20 disabled:opacity-60"
                 onClick={() => runMassive()}
                 disabled={massLoading}
               >
                 {massLoading ? (
-                  <span className="flex items-center gap-2">
+                  <>
                     <span className="animate-spin h-4 w-4 border-2 border-white/50 border-t-transparent rounded-full" />
                     Procesando...
-                  </span>
+                  </>
                 ) : (
                   <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 3a1 1 0 011 1v8.586l1.707-1.707a1 1 0 111.414 1.414l-3.5 3.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.414L9 12.586V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                    <span>Generar para todos</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 3a1 1 0 011 1v8.586l1.707-1.707a1 1 0 111.414 1.414l-3.5 3.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.414L9 12.586V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                    Generar para todos
                   </>
                 )}
               </button>
               {massHasRun && (
                 <button
-                  className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                  className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
                   onClick={async () => {
                     try {
                       await downloadMassXlsx();
@@ -144,55 +151,57 @@ export default function CargaMasivaTab({
                   }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 3a1 1 0 011 1v8.586l1.707-1.707a1 1 0 111.414 1.414l-3.5 3.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.414L9 12.586V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                  <span>Descargar XLSX</span>
+                  Descargar XLSX
                 </button>
               )}
               {massHasRun && capacityStats?.over_capacity?.length ? (
                 <button
-                  className="bg-amber-600 hover:bg-amber-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 disabled:opacity-60"
+                  className="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-white px-5 py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                   disabled={massRebalancing}
                   onClick={rebalanceOvercapacity}
                 >
                   {massRebalancing ? (
-                    <span className="flex items-center gap-2">
+                    <>
                       <span className="animate-spin h-4 w-4 border-2 border-white/50 border-t-transparent rounded-full" />
                       Recalculando...
-                    </span>
+                    </>
                   ) : (
                     <>
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a1 1 0 011-1h10a1 1 0 011 1v4.382a1 1 0 01-.553.894l-4.894 2.447a1 1 0 00-.553.894V17a1 1 0 01-1.447.894l-4-2A1 1 0 013 15V4z" clipRule="evenodd" /></svg>
-                      <span>Recalcular sobrecupo</span>
+                      Recalcular sobrecupo
                     </>
                   )}
                 </button>
               ) : null}
             </div>
           </div>
+          <div className="glass bg-slate-900/60 border border-slate-800 rounded-2xl p-6 w-full md:w-64 text-center space-y-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-slate-400 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" />
+            </svg>
+            <p className="text-2xl font-bold text-white">{summary?.total_alumnos ?? 0}</p>
+            <p className="text-xs uppercase tracking-wider text-slate-400">Registros detectados</p>
+          </div>
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="glass rounded-2xl p-6">
-        <div className="flex justify-between items-end mb-4">
-          <div>
-            <span className="text-xs font-semibold text-indigo-400 tracking-wider uppercase">Procesando</span>
-            <h3 className="text-lg font-medium">{massState?.phase === 'recalculando' ? 'Recalculando cupos' : (massState?.current_name || '—')}</h3>
+      {/* Progress */}
+      <div className="glass rounded-2xl p-6 md:p-7 border border-slate-800/60">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+          <div className="space-y-1">
+            <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-bold uppercase border border-slate-700 tracking-tighter inline-flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+              {massState?.stateLabel || (massLoading ? 'Procesando' : 'En espera')}
+            </span>
+            <h3 className="text-sm font-semibold text-slate-200">{massState?.phase === 'recalculando' ? 'Recalculando cupos' : (massState?.current_name || 'Sistema listo')}</h3>
             <p className="text-slate-500 text-xs">{massState ? `${massState.current || 0} de ${massState.total || 0} alumnos • Restantes ${massState.remaining || 0}` : 'Sin ejecución'}</p>
           </div>
-          <div className="flex items-center space-x-2 text-indigo-400">
-            {massLoading ? (
-              <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : null}
-            <span className="text-sm font-medium">{massState?.stateLabel || (massLoading ? 'Procesando...' : 'Listo')}</span>
-          </div>
+          <span className="text-2xl font-black text-slate-600 tracking-tighter transition-colors">{progressPct}%</span>
         </div>
-        <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+        <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800/60">
           <div
-            className="bg-gradient-to-r from-indigo-600 to-violet-500 h-full rounded-full transition-all duration-500"
-            style={{ width: `${massState?.total ? Math.min(Math.round(((massState.current || 0) / massState.total) * 100), 100) : 0}%` }}
+            className={`h-full rounded-full transition-all duration-300 ${massLoading ? 'progress-glow bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-indigo-600 to-indigo-400'}`}
+            style={{ width: `${progressPct}%` }}
           />
         </div>
       </div>
@@ -219,12 +228,23 @@ export default function CargaMasivaTab({
       )}
 
       {showEmptyState && (
-        <div className="glass rounded-2xl p-6 flex items-center justify-between border border-dashed border-slate-800">
-          <div>
-            <p className="text-sm text-slate-300 font-semibold">Aún no hay una carga masiva procesada.</p>
-            <p className="text-xs text-slate-500">Sube el Excel o ejecuta “Generar para todos” para ver resultados y reportes.</p>
+        <div className="glass rounded-2xl p-8 border border-dashed border-slate-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-indigo-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" /></svg>
+            </span>
+            <div>
+              <p className="text-sm text-slate-300 font-semibold">Aún no hay una carga masiva procesada.</p>
+              <p className="text-xs text-slate-500">Sube alumnos.xlsx o ejecuta “Generar para todos” para ver resultados y reportes.</p>
+            </div>
           </div>
-          <div className="hidden md:block text-indigo-300 text-sm">Esperando datos…</div>
+          <button
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 self-start"
+            onClick={() => runMassive()}
+            disabled={massLoading}
+          >
+            {massLoading ? 'Procesando...' : 'Generar para todos'}
+          </button>
         </div>
       )}
 
