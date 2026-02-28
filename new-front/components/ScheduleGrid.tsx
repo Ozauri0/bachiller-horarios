@@ -5,6 +5,7 @@ import clsx from 'classnames';
 import { CourseOption, ScheduleBlock, ScheduleResult } from '@/lib/types';
 
 const DAYS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes'];
+const DAY_HEADER_HEIGHT = 34; // px, to align time labels with the start of blocks
 
 const COLOR_CLASSES = [
   'bg-indigo-600/90 border border-indigo-300/40 text-white',
@@ -235,7 +236,7 @@ export function ScheduleGrid({ schedule, courses = [], header }: Props) {
                 <div
                   key={`time-${min}`}
                   className="absolute text-[12px] text-slate-400 text-right pr-2 w-full leading-none"
-                  style={{ top: `${pct}%`, transform: 'translateY(-50%)' }}
+                  style={{ top: `calc(${pct}% + ${DAY_HEADER_HEIGHT}px)`, transform: 'translateY(-50%)' }}
                 >
                   {minutesToTime(min)}
                 </div>
@@ -247,7 +248,7 @@ export function ScheduleGrid({ schedule, courses = [], header }: Props) {
           {DAYS.map((day, dayIndex) => (
             <div key={day} className="flex-1 flex flex-col min-w-0">
               {/* Day header */}
-              <div className="text-center text-xs font-semibold text-indigo-300 py-1.5 bg-slate-900/60 border-b border-slate-800/30 flex-shrink-0 border-l border-slate-800/20">
+              <div className="text-center text-xs font-semibold text-indigo-300 py-1.5 bg-slate-900/60 border-b border-slate-800/30 flex-shrink-0 border-l border-slate-800/20" style={{ height: DAY_HEADER_HEIGHT }}>
                 {day}
               </div>
 

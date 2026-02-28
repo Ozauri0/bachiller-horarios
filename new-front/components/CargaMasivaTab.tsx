@@ -135,7 +135,7 @@ export default function CargaMasivaTab({
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 3a1 1 0 011 1v8.586l1.707-1.707a1 1 0 111.414 1.414l-3.5 3.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.414L9 12.586V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                    Generar para todos
+                    Generar horarios
                   </>
                 )}
               </button>
@@ -196,7 +196,11 @@ export default function CargaMasivaTab({
             <h3 className="text-sm font-semibold text-slate-200">{massState?.phase === 'recalculando' ? 'Recalculando cupos' : (massState?.current_name || 'Sistema listo')}</h3>
             <p className="text-slate-500 text-xs">{massState ? `${massState.current || 0} de ${massState.total || 0} alumnos • Restantes ${massState.remaining || 0}` : 'Sin ejecución'}</p>
           </div>
-          <span className="text-2xl font-black text-slate-600 tracking-tighter transition-colors">{progressPct}%</span>
+          <span
+            className={`text-2xl font-black tracking-tighter transition-colors ${progressPct >= 100 ? 'text-emerald-400' : 'text-slate-200'}`}
+          >
+            {progressPct}%
+          </span>
         </div>
         <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800/60">
           <div
