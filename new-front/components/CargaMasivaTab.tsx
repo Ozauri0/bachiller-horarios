@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useEffect, useRef, useState } from 'react';
 import { CapacityEntry, CapacityStats, MassResult, MassSummary } from '@/lib/types';
 import { downloadMassXlsx } from '@/lib/api';
 
@@ -13,9 +14,42 @@ function Badge({ children, tone = 'indigo' }: { children: React.ReactNode; tone?
   return <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${map[tone]}`}>{children}</span>;
 }
 
+function AnimatedNumber({ value, duration = 800 }: { value: number; duration?: number }) {
+  const [display, setDisplay] = useState(value);
+  const frame = useRef<number | null>(null);
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    const start = prevValue.current;
+    const delta = value - start;
+    if (delta === 0) return;
+    const startAt = performance.now();
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - startAt) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(start + delta * eased));
+      if (progress < 1) {
+        frame.current = requestAnimationFrame(tick);
+      } else {
+        prevValue.current = value;
+      }
+    };
+
+    frame.current = requestAnimationFrame(tick);
+    return () => { if (frame.current) cancelAnimationFrame(frame.current); };
+  }, [value, duration]);
+
+  useEffect(() => { prevValue.current = value; setDisplay(value); }, []);
+
+  return <span>{display.toLocaleString('es-CL')}</span>;
+}
+
 interface CargaMasivaTabProps {
   massLoading: boolean;
   massSummary: MassSummary | null;
+  liveSummary: MassSummary | null;
+  massHasRun: boolean;
   massResults: MassResult[];
   massFiltered: MassResult[] | null;
   massState: any;
@@ -40,6 +74,7 @@ interface CargaMasivaTabProps {
 export default function CargaMasivaTab({
   massLoading,
   massSummary,
+  liveSummary,
   massResults,
   massFiltered,
   massState,
@@ -58,7 +93,15 @@ export default function CargaMasivaTab({
   applyMassFilters,
   selectMassSchedule,
   showBanner,
+  massHasRun,
 }: CargaMasivaTabProps) {
+  const summary = liveSummary || massSummary;
+  const hasFinalResults = massResults.length > 0;
+  const showResultsTable = massHasRun && !massLoading && hasFinalResults;
+  const showCapacityReport = massHasRun && !massLoading && Boolean(capacityStats) && (hasFinalResults || summary);
+  const showSummaryCards = massHasRun && (Boolean(summary) || massLoading);
+  const showEmptyState = (!massHasRun && !massLoading) || (massHasRun && !massLoading && !hasFinalResults && !summary);
+
   return (
     <section className="space-y-6">
       <div className="glass rounded-2xl p-6 border-l-4 border-l-indigo-500">
@@ -94,20 +137,22 @@ export default function CargaMasivaTab({
                   </>
                 )}
               </button>
-              <button
-                className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
-                onClick={async () => {
-                  try {
-                    await downloadMassXlsx();
-                  } catch (err: any) {
-                    showBanner(err.message || 'Sin resultados para descargar', 'info');
-                  }
-                }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 3a1 1 0 011 1v8.586l1.707-1.707a1 1 0 111.414 1.414l-3.5 3.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.414L9 12.586V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                <span>Descargar XLSX</span>
-              </button>
-              {capacityStats?.over_capacity?.length ? (
+              {massHasRun && (
+                <button
+                  className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                  onClick={async () => {
+                    try {
+                      await downloadMassXlsx();
+                    } catch (err: any) {
+                      showBanner(err.message || 'Sin resultados para descargar', 'info');
+                    }
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 3a1 1 0 011 1v8.586l1.707-1.707a1 1 0 111.414 1.414l-3.5 3.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.414L9 12.586V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                  <span>Descargar XLSX</span>
+                </button>
+              )}
+              {massHasRun && capacityStats?.over_capacity?.length ? (
                 <button
                   className="bg-amber-600 hover:bg-amber-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 disabled:opacity-60"
                   disabled={massRebalancing}
@@ -157,16 +202,39 @@ export default function CargaMasivaTab({
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass p-4 rounded-xl"><p className="text-slate-400 text-xs font-medium uppercase mb-1">Total Alumnos</p><p className="text-2xl font-bold">{massSummary?.total_alumnos ?? '—'}</p></div>
-        <div className="glass p-4 rounded-xl border-b-2 border-emerald-500/50"><p className="text-slate-400 text-xs font-medium uppercase mb-1">Con Horario</p><p className="text-2xl font-bold text-emerald-400">{massSummary?.con_horario ?? '—'}</p></div>
-        <div className="glass p-4 rounded-xl border-b-2 border-rose-500/50"><p className="text-slate-400 text-xs font-medium uppercase mb-1">Sin Horario</p><p className="text-2xl font-bold text-rose-400">{massSummary?.sin_horario ?? '—'}</p></div>
-        <div className="glass p-4 rounded-xl border-b-2 border-amber-500/50"><p className="text-slate-400 text-xs font-medium uppercase mb-1">Topón Válido</p><p className="text-2xl font-bold text-amber-400">{massSummary?.con_topon_valido ?? '—'}</p></div>
-      </div>
+      {showSummaryCards && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="glass p-4 rounded-xl">
+            <p className="text-slate-400 text-xs font-medium uppercase mb-1">Total Alumnos</p>
+            <p className="text-2xl font-bold"><AnimatedNumber value={summary?.total_alumnos ?? 0} /></p>
+          </div>
+          <div className="glass p-4 rounded-xl border-b-2 border-emerald-500/50">
+            <p className="text-slate-400 text-xs font-medium uppercase mb-1">Con Horario</p>
+            <p className="text-2xl font-bold text-emerald-400"><AnimatedNumber value={summary?.con_horario ?? 0} /></p>
+          </div>
+          <div className="glass p-4 rounded-xl border-b-2 border-rose-500/50">
+            <p className="text-slate-400 text-xs font-medium uppercase mb-1">Sin Horario</p>
+            <p className="text-2xl font-bold text-rose-400"><AnimatedNumber value={summary?.sin_horario ?? 0} /></p>
+          </div>
+          <div className="glass p-4 rounded-xl border-b-2 border-amber-500/50">
+            <p className="text-slate-400 text-xs font-medium uppercase mb-1">Topón Válido</p>
+            <p className="text-2xl font-bold text-amber-400"><AnimatedNumber value={summary?.con_topon_valido ?? 0} /></p>
+          </div>
+        </div>
+      )}
+
+      {showEmptyState && (
+        <div className="glass rounded-2xl p-6 flex items-center justify-between border border-dashed border-slate-800">
+          <div>
+            <p className="text-sm text-slate-300 font-semibold">Aún no hay una carga masiva procesada.</p>
+            <p className="text-xs text-slate-500">Sube el Excel o ejecuta “Generar para todos” para ver resultados y reportes.</p>
+          </div>
+          <div className="hidden md:block text-indigo-300 text-sm">Esperando datos…</div>
+        </div>
+      )}
 
       {/* Capacity report */}
-      {capacityStats && (
+      {showCapacityReport && capacityStats && (
         <div className="glass rounded-2xl p-4 space-y-4 border border-slate-800">
           <div className="flex items-center justify-between">
             <div>
@@ -269,83 +337,91 @@ export default function CargaMasivaTab({
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-96">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+      {showResultsTable ? (
+        <>
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full md:w-96">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              </div>
+              <input
+                id="massFilterText"
+                type="text"
+                className="block w-full pl-10 pr-3 py-2 border border-slate-800 bg-slate-900 rounded-lg text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                placeholder="Buscar por alumno, RUT o registro..."
+                value={massFilterText}
+                onChange={e => applyMassFilters(e.target.value, massFilterStatus)}
+              />
+            </div>
+            <select
+              id="massFilterStatus"
+              className="bg-slate-900 border border-slate-800 text-slate-300 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full md:w-48 p-2.5"
+              value={massFilterStatus}
+              onChange={e => applyMassFilters(massFilterText, e.target.value)}
+            >
+              <option value="">Todos los estados</option>
+              <option value="con_horario">Con horario</option>
+              <option value="no_valido">No válido</option>
+              <option value="topon_valido">Topón válido</option>
+            </select>
           </div>
-          <input
-            id="massFilterText"
-            type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-slate-800 bg-slate-900 rounded-lg text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            placeholder="Buscar por alumno, RUT o registro..."
-            value={massFilterText}
-            onChange={e => applyMassFilters(e.target.value, massFilterStatus)}
-          />
-        </div>
-        <select
-          id="massFilterStatus"
-          className="bg-slate-900 border border-slate-800 text-slate-300 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full md:w-48 p-2.5"
-          value={massFilterStatus}
-          onChange={e => applyMassFilters(massFilterText, e.target.value)}
-        >
-          <option value="">Todos los estados</option>
-          <option value="con_horario">Con horario</option>
-          <option value="no_valido">No válido</option>
-          <option value="topon_valido">Topón válido</option>
-        </select>
-      </div>
 
-      {/* Results table */}
-      <div className="glass rounded-2xl overflow-hidden overflow-x-auto scrollbar-thin">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-900/80 border-b border-slate-800">
-            <tr>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Registro</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">RUT</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Nombre</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Cursos</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Estado</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase text-center">Acciones</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Mensaje</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {(massFiltered ?? massResults).length === 0 ? (
-              <tr><td className="px-6 py-4 text-sm text-slate-300" colSpan={7}>Sin resultados</td></tr>
-            ) : (
-              (massFiltered ?? massResults).map(r => {
-                const badge = (() => {
-                  // Primero verificar conflictos: cualquier horario con conflictos es inválido
-                  if (r.has_conflicts || r.status === 'no_valido') return <Badge tone="rose">No válido</Badge>;
-                  if (r.status === 'con_horario' && r.has_valid_topones) return <Badge tone="amber">Topón válido</Badge>;
-                  if (r.status === 'con_horario') return <Badge tone="emerald">Generado</Badge>;
-                  return <Badge tone="rose">Sin horario</Badge>;
-                })();
-                const hasSchedule = r.blocks && r.blocks.length > 0;
-                return (
-                  <tr key={r.registro} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="px-6 py-4 text-sm text-slate-300">{r.registro}</td>
-                    <td className="px-6 py-4 text-sm text-slate-300">{r.rut}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-white">{r.nombre}</td>
-                    <td className="px-6 py-4 text-sm text-slate-300">{(r.cursos || []).join(', ')}</td>
-                    <td className="px-6 py-4">{badge}</td>
-                    <td className="px-6 py-4 text-center">
-                      {hasSchedule ? (
-                        <button onClick={() => selectMassSchedule(r.registro)} className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">Ver horario</button>
-                      ) : (
-                        <span className="text-slate-600 text-sm">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-300">{r.message || '—'}</td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+          {/* Results table */}
+          <div className="glass rounded-2xl overflow-hidden overflow-x-auto scrollbar-thin">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-900/80 border-b border-slate-800">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Registro</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">RUT</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Nombre</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Cursos</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Estado</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase text-center">Acciones</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Mensaje</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {(massFiltered ?? massResults).length === 0 ? (
+                  <tr><td className="px-6 py-4 text-sm text-slate-300" colSpan={7}>Sin resultados</td></tr>
+                ) : (
+                  (massFiltered ?? massResults).map(r => {
+                    const badge = (() => {
+                      // Primero verificar conflictos: cualquier horario con conflictos es inválido
+                      if (r.has_conflicts || r.status === 'no_valido') return <Badge tone="rose">No válido</Badge>;
+                      if (r.status === 'con_horario' && r.has_valid_topones) return <Badge tone="amber">Topón válido</Badge>;
+                      if (r.status === 'con_horario') return <Badge tone="emerald">Generado</Badge>;
+                      return <Badge tone="rose">Sin horario</Badge>;
+                    })();
+                    const hasSchedule = r.blocks && r.blocks.length > 0;
+                    return (
+                      <tr key={r.registro} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="px-6 py-4 text-sm text-slate-300">{r.registro}</td>
+                        <td className="px-6 py-4 text-sm text-slate-300">{r.rut}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-white">{r.nombre}</td>
+                        <td className="px-6 py-4 text-sm text-slate-300">{(r.cursos || []).join(', ')}</td>
+                        <td className="px-6 py-4">{badge}</td>
+                        <td className="px-6 py-4 text-center">
+                          {hasSchedule ? (
+                            <button onClick={() => selectMassSchedule(r.registro)} className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">Ver horario</button>
+                          ) : (
+                            <span className="text-slate-600 text-sm">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-300">{r.message || '—'}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : massLoading ? (
+        <div className="glass rounded-2xl p-6 text-sm text-slate-300 border border-slate-800">
+          Procesando alumnos… pronto verás los resultados aquí.
+        </div>
+      ) : null}
     </section>
   );
 }

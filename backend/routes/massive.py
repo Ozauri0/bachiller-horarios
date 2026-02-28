@@ -19,6 +19,7 @@ MASS_STATE = {
     'current_registro': '',
     'results': None,
     'summary': None,
+    'summary_progress': None,
     'error': None,
     'phase': '',
     'capacity_report': None,
@@ -189,6 +190,7 @@ def _run_rebalance_job(target_registros, prev_results, base_df):
             'running': False,
             'results': combined_clean,
             'summary': summary_clean,
+            'summary_progress': summary_clean,
             'error': None,
             'phase': 'completado',
             'capacity_report': capacity_report_clean,
@@ -209,6 +211,7 @@ def _run_rebalance_job(target_registros, prev_results, base_df):
             'error': str(e),
             'capacity_report': None,
             'capacity_stats': None,
+            'summary_progress': None,
             'rebalanced_count': 0
         })
 
@@ -265,13 +268,15 @@ def api_mass_generate():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def _progress_cb(idx, total, name, registro, phase='generando'):
+def _progress_cb(idx, total, name, registro, phase='generando', summary=None):
     # Clamp to avoid showing "total+1" when we emit the final adjustment phase
     MASS_STATE['current'] = min(idx + 1, total)
     MASS_STATE['total'] = total
     MASS_STATE['current_name'] = name
     MASS_STATE['current_registro'] = registro
     MASS_STATE['phase'] = phase
+    if summary is not None:
+        MASS_STATE['summary_progress'] = summary
 
 
 def _run_massive_job(alumnos_df, base_df):
@@ -280,6 +285,7 @@ def _run_massive_job(alumnos_df, base_df):
             'running': True,
             'results': None,
             'summary': None,
+            'summary_progress': None,
             'error': None,
             'current': 0,
             'total': 0,
@@ -310,6 +316,7 @@ def _run_massive_job(alumnos_df, base_df):
             'running': False,
             'results': results_clean,
             'summary': summary_clean,
+            'summary_progress': summary_clean,
             'error': None,
             'phase': 'completado',
             'capacity_report': capacity_report_clean,
@@ -321,6 +328,7 @@ def _run_massive_job(alumnos_df, base_df):
             'running': False,
             'results': None,
             'summary': None,
+            'summary_progress': None,
             'error': str(e),
             'phase': 'error',
             'capacity_report': None,
@@ -349,6 +357,7 @@ def api_mass_generate_async():
             'running': True,
             'results': None,
             'summary': None,
+            'summary_progress': None,
             'error': None,
             'current': 0,
             'total': total,
@@ -370,6 +379,7 @@ def api_mass_generate_async():
         MASS_STATE.update({
             'running': False,
             'error': str(e),
+            'summary_progress': None,
             'rebalanced_count': 0
         })
         return jsonify({'success': False, 'error': str(e)}), 500

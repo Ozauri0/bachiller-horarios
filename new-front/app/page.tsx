@@ -81,6 +81,7 @@ export default function HomePage() {
 
   const [massLoading, setMassLoading] = useState(false);
   const [massSummary, setMassSummary] = useState<MassSummary | null>(null);
+  const [massHasRun, setMassHasRun] = useState(false);
   const [massResults, setMassResults] = useState<MassResult[]>([]);
   const [massFiltered, setMassFiltered] = useState<MassResult[] | null>(null);
   const [massState, setMassState] = useState<any>(null);
@@ -153,6 +154,12 @@ export default function HomePage() {
       return (b.remaining ?? 0) - (a.remaining ?? 0);
     });
   }, [capacityStats, mostEmptySort]);
+
+  const liveSummary = useMemo(() => {
+    if (massSummary) return massSummary;
+    if (massState?.summary_progress) return massState.summary_progress as MassSummary;
+    return null;
+  }, [massSummary, massState]);
 
   // ── Effects ──────────────────────────────────────────
 
@@ -391,17 +398,20 @@ export default function HomePage() {
     try {
       setMassLoading(true); setMassRebalancing(false); setMassSummary(null); setMassResults([]);
       setCapacityReport(null); setCapacityStats(null); setMassFiltered(null); setMassState(null);
+      setMassHasRun(false);
       const resp = await runMassiveGeneration(file);
       if (!resp.success) throw new Error('No se pudo iniciar la carga masiva');
+      setMassHasRun(true);
       startPolling();
     } catch (err: any) {
-      console.error(err); setMassLoading(false); showBanner(err.message || 'Error en carga masiva', 'error');
+      console.error(err); setMassLoading(false); setMassHasRun(false); showBanner(err.message || 'Error en carga masiva', 'error');
     }
   };
 
   const rebalanceOvercapacity = async () => {
     try {
       setMassRebalancing(true);
+      setMassHasRun(true);
       setMassState({ running: true, phase: 'recalculando', current: 0, total: massTargetCount, current_name: '', remaining: massTargetCount, stateLabel: 'Recalculando cupos' });
       const resp = await rebalanceMassive();
       if (!resp.success) throw new Error((resp as any).error || 'No se pudo recalcular sobrecupo');
@@ -533,14 +543,16 @@ export default function HomePage() {
     <>
       <AppHeader tab={tab} setTab={setTab} />
 
-      <main className="min-h-screen p-4 md:p-8 bg-slate-950 pt-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+      <main className="min-h-screen p-3 sm:p-4 md:p-8 bg-slate-950 pt-6">
+        <div className="w-full max-w-screen-2xl xl:max-w-[95vw] mx-auto space-y-6">
           <Banner banner={banner} />
 
           {tab === 'carga' && (
             <CargaMasivaTab
               massLoading={massLoading}
               massSummary={massSummary}
+              liveSummary={liveSummary}
+              massHasRun={massHasRun}
               massResults={massResults}
               massFiltered={massFiltered}
               massState={massState}

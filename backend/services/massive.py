@@ -97,6 +97,28 @@ def collect_course_meta(group):
     return meta
 
 
+def _build_partial_summary(sin_results, student_entries):
+    total = len(sin_results) + len(student_entries)
+    con_horario = sum(1 for r in student_entries if r.get('status') == 'con_horario')
+    con_topon_valido = sum(
+        1 for r in student_entries
+        if r.get('status') == 'con_horario' and not r.get('has_conflicts') and r.get('has_valid_topones')
+    )
+    return {
+        'total_alumnos': total,
+        'con_horario': con_horario,
+        'sin_horario': total - con_horario,
+        'con_topon_valido': con_topon_valido
+    }
+
+
+def _emit_progress(progress_cb, idx, total, name, registro, phase, sin_results, student_entries):
+    if not progress_cb:
+        return
+    summary = _build_partial_summary(sin_results, student_entries)
+    progress_cb(idx, total, name, registro, phase=phase, summary=summary)
+
+
 def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=None, remaining_caps_override=None):
     group_configs, valid_topones = load_saved_config()
     capacities = capacities_override or load_capacity_map()
@@ -124,9 +146,6 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
         ap_pat = str(group['APELLIDO PATERNO'].iloc[0]).strip() if 'APELLIDO PATERNO' in group else ''
         ap_mat = str(group['APELLIDO MATERNO'].iloc[0]).strip() if 'APELLIDO MATERNO' in group else ''
         nombre_completo = ' '.join(x for x in [nombre, ap_pat, ap_mat] if x).strip()
-
-        if progress_cb:
-            progress_cb(idx, total, nombre_completo or registro_val, registro_val, phase='generando')
 
         course_codes = []
         for _, row in group.iterrows():
@@ -163,6 +182,7 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
                 'message': 'Faltan bloques en consolidado: ' + ', '.join(missing),
                 'sections': []
             })
+            _emit_progress(progress_cb, idx, total, nombre_completo or registro_val, registro_val, 'generando', sin_horario_results, student_entries)
             continue
 
         selected_courses = course_codes
@@ -198,7 +218,7 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
             chosen = schedules[0]
             used_topon = chosen.get('has_valid_topones')
         if not chosen:
-            results.append({
+            sin_horario_results.append({
                 'registro': registro_val,
                 'rut': rut,
                 'rut_num': rut_num,
@@ -218,6 +238,7 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
                 'valid_topones': [],
                 'valid_topon_types': []
             })
+            _emit_progress(progress_cb, idx, total, nombre_completo or registro_val, registro_val, 'generando', sin_horario_results, student_entries)
             continue
 
         courses_detail = []
@@ -273,10 +294,10 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
         }
 
         student_entries.append(student_entry)
+        _emit_progress(progress_cb, idx, total, nombre_completo or registro_val, registro_val, 'generando', sin_horario_results, student_entries)
 
     # Ajuste por sobrecupo
-    if progress_cb:
-        progress_cb(total, total, 'Ajustando cupos', '', phase='ajustando')
+    _emit_progress(progress_cb, total, total, 'Ajustando cupos', '', 'ajustando', sin_horario_results, student_entries)
 
     overfull_keys = {k: v for k, v in remaining_caps.items() if v < 0}
     if overfull_keys:
@@ -333,6 +354,8 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
             if not swapped:
                 # Reasignar al original (aunque sobrecupo)
                 apply_capacity(old_sched, remaining_caps, -1)
+
+    _emit_progress(progress_cb, total, total, 'Ajuste completado', '', 'ajustando', sin_horario_results, student_entries)
 
     # Limpiar y retornar resultados finales
     results = list(sin_horario_results)
