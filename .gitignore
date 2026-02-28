@@ -67,3 +67,4 @@ desktop.ini
 # Nuevo front en Next.js
 /new-front/.next/
 /new-front/node_modules/
+/data/massive_report.json
