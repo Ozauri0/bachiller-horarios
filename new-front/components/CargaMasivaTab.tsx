@@ -239,16 +239,9 @@ export default function CargaMasivaTab({
             </span>
             <div>
               <p className="text-sm text-slate-300 font-semibold">Aún no hay una carga masiva procesada.</p>
-              <p className="text-xs text-slate-500">Sube alumnos.xlsx o ejecuta “Generar para todos” para ver resultados y reportes.</p>
+              <p className="text-xs text-slate-500">Sube alumnos.xlsx o ejecuta “Generar horarios” para ver resultados y reportes.</p>
             </div>
           </div>
-          <button
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 self-start"
-            onClick={() => runMassive()}
-            disabled={massLoading}
-          >
-            {massLoading ? 'Procesando...' : 'Generar para todos'}
-          </button>
         </div>
       )}
 

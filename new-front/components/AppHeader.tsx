@@ -4,7 +4,7 @@ type TabKey = 'horarios' | 'config' | 'datos' | 'carga';
 
 interface AppHeaderProps {
   tab: TabKey;
-  setTab: (tab: TabKey) => void;
+  onTabChange: (tab: TabKey) => void;
 }
 
 function TabButton({ value, label, active, onClick }: { value: TabKey; label: string; active: boolean; onClick: () => void }) {
@@ -22,7 +22,7 @@ function TabButton({ value, label, active, onClick }: { value: TabKey; label: st
   );
 }
 
-export default function AppHeader({ tab, setTab }: AppHeaderProps) {
+export default function AppHeader({ tab, onTabChange }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-xl">
       {/* Contenedor relativo para posicionar menú centrado absoluto */}
@@ -40,10 +40,10 @@ export default function AppHeader({ tab, setTab }: AppHeaderProps) {
         {/* Menú de navegación – centrado absoluto en pantallas md+, debajo en móvil */}
         <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
           <div className="inline-flex p-1 bg-slate-900 border border-slate-800 rounded-lg shadow-inner gap-1 pointer-events-auto">
-            <TabButton value="horarios" label="Horarios" active={tab === 'horarios'} onClick={() => setTab('horarios')} />
-            <TabButton value="config" label="Configuración" active={tab === 'config'} onClick={() => setTab('config')} />
-            <TabButton value="datos" label="Datos" active={tab === 'datos'} onClick={() => setTab('datos')} />
-            <TabButton value="carga" label="Carga Masiva" active={tab === 'carga'} onClick={() => setTab('carga')} />
+            <TabButton value="horarios" label="Horarios" active={tab === 'horarios'} onClick={() => onTabChange('horarios')} />
+            <TabButton value="config" label="Configuración" active={tab === 'config'} onClick={() => onTabChange('config')} />
+            <TabButton value="datos" label="Datos" active={tab === 'datos'} onClick={() => onTabChange('datos')} />
+            <TabButton value="carga" label="Carga Masiva" active={tab === 'carga'} onClick={() => onTabChange('carga')} />
           </div>
         </div>
       </div>
@@ -51,10 +51,10 @@ export default function AppHeader({ tab, setTab }: AppHeaderProps) {
       {/* Menú en móvil: debajo del header en su propia fila */}
       <div className="md:hidden flex justify-center pb-2 px-2">
         <div className="inline-flex flex-wrap justify-center p-1 bg-slate-900 border border-slate-800 rounded-lg shadow-inner gap-1">
-          <TabButton value="horarios" label="Horarios" active={tab === 'horarios'} onClick={() => setTab('horarios')} />
-          <TabButton value="config" label="Configuración" active={tab === 'config'} onClick={() => setTab('config')} />
-          <TabButton value="datos" label="Datos" active={tab === 'datos'} onClick={() => setTab('datos')} />
-          <TabButton value="carga" label="Carga Masiva" active={tab === 'carga'} onClick={() => setTab('carga')} />
+          <TabButton value="horarios" label="Horarios" active={tab === 'horarios'} onClick={() => onTabChange('horarios')} />
+          <TabButton value="config" label="Configuración" active={tab === 'config'} onClick={() => onTabChange('config')} />
+          <TabButton value="datos" label="Datos" active={tab === 'datos'} onClick={() => onTabChange('datos')} />
+          <TabButton value="carga" label="Carga Masiva" active={tab === 'carga'} onClick={() => onTabChange('carga')} />
         </div>
       </div>
     </header>
