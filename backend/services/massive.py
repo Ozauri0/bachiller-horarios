@@ -199,7 +199,8 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
             )
             schedule_cache[course_codes_key] = (schedules, _stats)
 
-        candidate_schedules = schedules[:10] if schedules else []
+        # Considerar más combinaciones para mejorar chances de encontrar horarios válidos
+        candidate_schedules = schedules[:100] if schedules else []
 
         chosen = None
         used_topon = None
@@ -300,6 +301,7 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
     _emit_progress(progress_cb, total, total, 'Ajustando cupos', '', 'ajustando', sin_horario_results, student_entries)
 
     overfull_keys = {k: v for k, v in remaining_caps.items() if v < 0}
+    overfull_sections = {k for k, v in remaining_caps.items() if v < 0}
     if overfull_keys:
         for entry in student_entries:
             old_sched = {
@@ -328,6 +330,25 @@ def process_massive(base_df, alumnos_df, progress_cb=None, capacities_override=N
             swapped = False
             for cand in entry.get('candidates', []):
                 if cand.get('sections', []) == old_sched.get('sections', []):
+                    continue
+                cand_sections = cand.get('sections', [])
+                # No mover si sigue usando alguna sección con sobrecupo
+                skip_for_overfull = False
+                for sec in cand_sections:
+                    try:
+                        key = (str(sec.get('course')), int(sec.get('section')))
+                    except Exception:
+                        continue
+                    if key in overfull_sections:
+                        skip_for_overfull = True
+                        break
+                if skip_for_overfull:
+                    continue
+
+                # Solo aceptar horarios válidos (sin conflictos) y con topones válidos si aplica
+                if cand.get('has_conflicts'):
+                    continue
+                if cand.get('valid_topones') and not cand.get('has_valid_topones'):
                     continue
                 if not schedule_capacity_ok(cand, remaining_caps):
                     continue

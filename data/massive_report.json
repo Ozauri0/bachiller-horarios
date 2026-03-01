@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-02-28T21:38:14.845268Z",
+  "timestamp": "2026-03-01T02:06:07.979789Z",
   "summary": {
     "total_alumnos": 306,
-    "con_horario": 288,
-    "sin_horario": 18,
-    "con_topon_valido": 35
+    "con_horario": 293,
+    "sin_horario": 13,
+    "con_topon_valido": 39
   },
   "capacity_report": [
     {
@@ -51,16 +51,16 @@
       "course": "BACH1121",
       "section": 1,
       "capacity": 23,
-      "assigned": 24,
-      "remaining": -1,
+      "assigned": 26,
+      "remaining": -3,
       "over_capacity": true
     },
     {
       "course": "BACH1121",
       "section": 2,
       "capacity": 23,
-      "assigned": 92,
-      "remaining": -69,
+      "assigned": 85,
+      "remaining": -62,
       "over_capacity": true
     },
     {
@@ -75,8 +75,8 @@
       "course": "BACH1121",
       "section": 4,
       "capacity": 23,
-      "assigned": 19,
-      "remaining": 4,
+      "assigned": 23,
+      "remaining": 0,
       "over_capacity": false
     },
     {
@@ -99,24 +99,24 @@
       "course": "BACH1121",
       "section": 7,
       "capacity": 23,
-      "assigned": 5,
-      "remaining": 18,
+      "assigned": 3,
+      "remaining": 20,
       "over_capacity": false
     },
     {
       "course": "BACH1121",
       "section": 8,
       "capacity": 23,
-      "assigned": 19,
-      "remaining": 4,
+      "assigned": 18,
+      "remaining": 5,
       "over_capacity": false
     },
     {
       "course": "BACH1121",
       "section": 9,
       "capacity": 23,
-      "assigned": 29,
-      "remaining": -6,
+      "assigned": 31,
+      "remaining": -8,
       "over_capacity": true
     },
     {
@@ -139,40 +139,40 @@
       "course": "BACH1121",
       "section": 12,
       "capacity": 23,
-      "assigned": 23,
-      "remaining": 0,
-      "over_capacity": false
+      "assigned": 25,
+      "remaining": -2,
+      "over_capacity": true
     },
     {
       "course": "BACH1122",
       "section": 1,
       "capacity": 46,
-      "assigned": 132,
-      "remaining": -86,
+      "assigned": 124,
+      "remaining": -78,
       "over_capacity": true
     },
     {
       "course": "BACH1122",
       "section": 2,
       "capacity": 46,
-      "assigned": 35,
-      "remaining": 11,
+      "assigned": 41,
+      "remaining": 5,
       "over_capacity": false
     },
     {
       "course": "BACH1122",
       "section": 3,
       "capacity": 46,
-      "assigned": 35,
-      "remaining": 11,
+      "assigned": 34,
+      "remaining": 12,
       "over_capacity": false
     },
     {
       "course": "BACH1122",
       "section": 4,
       "capacity": 46,
-      "assigned": 2,
-      "remaining": 44,
+      "assigned": 4,
+      "remaining": 42,
       "over_capacity": false
     },
     {
@@ -187,24 +187,24 @@
       "course": "BACH1122",
       "section": 6,
       "capacity": 46,
-      "assigned": 35,
-      "remaining": 11,
+      "assigned": 36,
+      "remaining": 10,
       "over_capacity": false
     },
     {
       "course": "BACH1123",
       "section": 1,
       "capacity": 46,
-      "assigned": 110,
-      "remaining": -64,
+      "assigned": 114,
+      "remaining": -68,
       "over_capacity": true
     },
     {
       "course": "BACH1123",
       "section": 2,
       "capacity": 46,
-      "assigned": 36,
-      "remaining": 10,
+      "assigned": 46,
+      "remaining": 0,
       "over_capacity": false
     },
     {
@@ -219,8 +219,8 @@
       "course": "BACH1123",
       "section": 4,
       "capacity": 46,
-      "assigned": 38,
-      "remaining": 8,
+      "assigned": 27,
+      "remaining": 19,
       "over_capacity": false
     },
     {
@@ -235,56 +235,56 @@
       "course": "BACH1123",
       "section": 6,
       "capacity": 46,
-      "assigned": 15,
-      "remaining": 31,
+      "assigned": 12,
+      "remaining": 34,
       "over_capacity": false
     },
     {
       "course": "BACH1124",
       "section": 1,
       "capacity": 46,
-      "assigned": 92,
-      "remaining": -46,
+      "assigned": 95,
+      "remaining": -49,
       "over_capacity": true
     },
     {
       "course": "BACH1124",
       "section": 2,
       "capacity": 46,
-      "assigned": 44,
-      "remaining": 2,
+      "assigned": 34,
+      "remaining": 12,
       "over_capacity": false
     },
     {
       "course": "BACH1124",
       "section": 3,
       "capacity": 46,
-      "assigned": 18,
-      "remaining": 28,
+      "assigned": 16,
+      "remaining": 30,
       "over_capacity": false
     },
     {
       "course": "BACH1124",
       "section": 4,
       "capacity": 46,
-      "assigned": 18,
-      "remaining": 28,
+      "assigned": 19,
+      "remaining": 27,
       "over_capacity": false
     },
     {
       "course": "BACH1124",
       "section": 5,
       "capacity": 46,
-      "assigned": 46,
-      "remaining": 0,
-      "over_capacity": false
+      "assigned": 47,
+      "remaining": -1,
+      "over_capacity": true
     },
     {
       "course": "BACH1124",
       "section": 6,
       "capacity": 46,
-      "assigned": 25,
-      "remaining": 21,
+      "assigned": 32,
+      "remaining": 14,
       "over_capacity": false
     },
     {
@@ -355,16 +355,16 @@
       "course": "CES1159",
       "section": 1,
       "capacity": 63,
-      "assigned": 116,
-      "remaining": -53,
+      "assigned": 117,
+      "remaining": -54,
       "over_capacity": true
     },
     {
       "course": "CES1159",
       "section": 2,
       "capacity": 64,
-      "assigned": 25,
-      "remaining": 39,
+      "assigned": 24,
+      "remaining": 40,
       "over_capacity": false
     },
     {
@@ -427,16 +427,16 @@
       "course": "FCS1105",
       "section": 1,
       "capacity": 40,
-      "assigned": 42,
-      "remaining": -2,
+      "assigned": 45,
+      "remaining": -5,
       "over_capacity": true
     },
     {
       "course": "FCS1105",
       "section": 2,
       "capacity": 40,
-      "assigned": 13,
-      "remaining": 27,
+      "assigned": 10,
+      "remaining": 30,
       "over_capacity": false
     },
     {
@@ -571,16 +571,16 @@
       "course": "QUI1150",
       "section": 1,
       "capacity": 40,
-      "assigned": 92,
-      "remaining": -52,
+      "assigned": 98,
+      "remaining": -58,
       "over_capacity": true
     },
     {
       "course": "QUI1150",
       "section": 2,
       "capacity": 40,
-      "assigned": 34,
-      "remaining": 6,
+      "assigned": 28,
+      "remaining": 12,
       "over_capacity": false
     },
     {
@@ -654,64 +654,80 @@
         "course": "BACH1121",
         "section": 1,
         "capacity": 23,
-        "assigned": 24,
-        "remaining": -1,
+        "assigned": 26,
+        "remaining": -3,
         "over_capacity": true
       },
       {
         "course": "BACH1121",
         "section": 2,
         "capacity": 23,
-        "assigned": 92,
-        "remaining": -69,
+        "assigned": 85,
+        "remaining": -62,
         "over_capacity": true
       },
       {
         "course": "BACH1121",
         "section": 9,
         "capacity": 23,
-        "assigned": 29,
-        "remaining": -6,
+        "assigned": 31,
+        "remaining": -8,
+        "over_capacity": true
+      },
+      {
+        "course": "BACH1121",
+        "section": 12,
+        "capacity": 23,
+        "assigned": 25,
+        "remaining": -2,
         "over_capacity": true
       },
       {
         "course": "BACH1122",
         "section": 1,
         "capacity": 46,
-        "assigned": 132,
-        "remaining": -86,
+        "assigned": 124,
+        "remaining": -78,
         "over_capacity": true
       },
       {
         "course": "BACH1123",
         "section": 1,
         "capacity": 46,
-        "assigned": 110,
-        "remaining": -64,
+        "assigned": 114,
+        "remaining": -68,
         "over_capacity": true
       },
       {
         "course": "BACH1124",
         "section": 1,
         "capacity": 46,
-        "assigned": 92,
-        "remaining": -46,
+        "assigned": 95,
+        "remaining": -49,
+        "over_capacity": true
+      },
+      {
+        "course": "BACH1124",
+        "section": 5,
+        "capacity": 46,
+        "assigned": 47,
+        "remaining": -1,
         "over_capacity": true
       },
       {
         "course": "CES1159",
         "section": 1,
         "capacity": 63,
-        "assigned": 116,
-        "remaining": -53,
+        "assigned": 117,
+        "remaining": -54,
         "over_capacity": true
       },
       {
         "course": "FCS1105",
         "section": 1,
         "capacity": 40,
-        "assigned": 42,
-        "remaining": -2,
+        "assigned": 45,
+        "remaining": -5,
         "over_capacity": true
       },
       {
@@ -726,8 +742,8 @@
         "course": "QUI1150",
         "section": 1,
         "capacity": 40,
-        "assigned": 92,
-        "remaining": -52,
+        "assigned": 98,
+        "remaining": -58,
         "over_capacity": true
       },
       {
@@ -760,40 +776,40 @@
         "course": "BACH1122",
         "section": 4,
         "capacity": 46,
-        "assigned": 2,
-        "remaining": 44,
+        "assigned": 4,
+        "remaining": 42,
         "over_capacity": false
       },
       {
         "course": "CES1159",
         "section": 2,
         "capacity": 64,
-        "assigned": 25,
-        "remaining": 39,
+        "assigned": 24,
+        "remaining": 40,
         "over_capacity": false
       },
       {
         "course": "BACH1123",
         "section": 6,
         "capacity": 46,
-        "assigned": 15,
-        "remaining": 31,
+        "assigned": 12,
+        "remaining": 34,
         "over_capacity": false
       },
       {
         "course": "BACH1124",
         "section": 3,
         "capacity": 46,
-        "assigned": 18,
-        "remaining": 28,
+        "assigned": 16,
+        "remaining": 30,
         "over_capacity": false
       },
       {
-        "course": "BACH1124",
-        "section": 4,
-        "capacity": 46,
-        "assigned": 18,
-        "remaining": 28,
+        "course": "FCS1105",
+        "section": 2,
+        "capacity": 40,
+        "assigned": 10,
+        "remaining": 30,
         "over_capacity": false
       },
       {
@@ -805,10 +821,10 @@
         "over_capacity": false
       },
       {
-        "course": "FCS1105",
-        "section": 2,
-        "capacity": 40,
-        "assigned": 13,
+        "course": "BACH1124",
+        "section": 4,
+        "capacity": 46,
+        "assigned": 19,
         "remaining": 27,
         "over_capacity": false
       },
@@ -845,11 +861,11 @@
         "over_capacity": false
       },
       {
-        "course": "BACH1124",
-        "section": 6,
-        "capacity": 46,
-        "assigned": 25,
-        "remaining": 21,
+        "course": "BACH1121",
+        "section": 7,
+        "capacity": 23,
+        "assigned": 3,
+        "remaining": 20,
         "over_capacity": false
       },
       {
@@ -861,11 +877,11 @@
         "over_capacity": false
       },
       {
-        "course": "BACH1121",
-        "section": 7,
-        "capacity": 23,
-        "assigned": 5,
-        "remaining": 18,
+        "course": "BACH1123",
+        "section": 4,
+        "capacity": 46,
+        "assigned": 27,
+        "remaining": 19,
         "over_capacity": false
       },
       {
@@ -890,6 +906,14 @@
         "capacity": 20,
         "assigned": 4,
         "remaining": 16,
+        "over_capacity": false
+      },
+      {
+        "course": "BACH1124",
+        "section": 6,
+        "capacity": 46,
+        "assigned": 32,
+        "remaining": 14,
         "over_capacity": false
       },
       {
@@ -925,6 +949,30 @@
         "over_capacity": false
       },
       {
+        "course": "BACH1122",
+        "section": 3,
+        "capacity": 46,
+        "assigned": 34,
+        "remaining": 12,
+        "over_capacity": false
+      },
+      {
+        "course": "BACH1124",
+        "section": 2,
+        "capacity": 46,
+        "assigned": 34,
+        "remaining": 12,
+        "over_capacity": false
+      },
+      {
+        "course": "QUI1150",
+        "section": 2,
+        "capacity": 40,
+        "assigned": 28,
+        "remaining": 12,
+        "over_capacity": false
+      },
+      {
         "course": "ARQ1204",
         "section": 1,
         "capacity": 30,
@@ -942,42 +990,10 @@
       },
       {
         "course": "BACH1122",
-        "section": 2,
-        "capacity": 46,
-        "assigned": 35,
-        "remaining": 11,
-        "over_capacity": false
-      },
-      {
-        "course": "BACH1122",
-        "section": 3,
-        "capacity": 46,
-        "assigned": 35,
-        "remaining": 11,
-        "over_capacity": false
-      },
-      {
-        "course": "BACH1122",
         "section": 6,
-        "capacity": 46,
-        "assigned": 35,
-        "remaining": 11,
-        "over_capacity": false
-      },
-      {
-        "course": "BACH1123",
-        "section": 2,
         "capacity": 46,
         "assigned": 36,
         "remaining": 10,
-        "over_capacity": false
-      },
-      {
-        "course": "BACH1123",
-        "section": 4,
-        "capacity": 46,
-        "assigned": 38,
-        "remaining": 8,
         "over_capacity": false
       },
       {
@@ -1029,11 +1045,19 @@
         "over_capacity": false
       },
       {
-        "course": "QUI1150",
+        "course": "BACH1121",
+        "section": 8,
+        "capacity": 23,
+        "assigned": 18,
+        "remaining": 5,
+        "over_capacity": false
+      },
+      {
+        "course": "BACH1122",
         "section": 2,
-        "capacity": 40,
-        "assigned": 34,
-        "remaining": 6,
+        "capacity": 46,
+        "assigned": 41,
+        "remaining": 5,
         "over_capacity": false
       },
       {
@@ -1041,22 +1065,6 @@
         "section": 1,
         "capacity": 5,
         "assigned": 1,
-        "remaining": 4,
-        "over_capacity": false
-      },
-      {
-        "course": "BACH1121",
-        "section": 4,
-        "capacity": 23,
-        "assigned": 19,
-        "remaining": 4,
-        "over_capacity": false
-      },
-      {
-        "course": "BACH1121",
-        "section": 8,
-        "capacity": 23,
-        "assigned": 19,
         "remaining": 4,
         "over_capacity": false
       },
@@ -1098,14 +1106,6 @@
         "capacity": 3,
         "assigned": 0,
         "remaining": 3,
-        "over_capacity": false
-      },
-      {
-        "course": "BACH1124",
-        "section": 2,
-        "capacity": 46,
-        "assigned": 44,
-        "remaining": 2,
         "over_capacity": false
       },
       {
@@ -1214,7 +1214,7 @@
       },
       {
         "course": "BACH1121",
-        "section": 5,
+        "section": 4,
         "capacity": 23,
         "assigned": 23,
         "remaining": 0,
@@ -1222,7 +1222,7 @@
       },
       {
         "course": "BACH1121",
-        "section": 12,
+        "section": 5,
         "capacity": 23,
         "assigned": 23,
         "remaining": 0,
@@ -1230,15 +1230,15 @@
       },
       {
         "course": "BACH1123",
-        "section": 3,
+        "section": 2,
         "capacity": 46,
         "assigned": 46,
         "remaining": 0,
         "over_capacity": false
       },
       {
-        "course": "BACH1124",
-        "section": 5,
+        "course": "BACH1123",
+        "section": 3,
         "capacity": 46,
         "assigned": 46,
         "remaining": 0,
@@ -1277,10 +1277,10 @@
         "over_capacity": false
       },
       {
-        "course": "BACH1121",
-        "section": 1,
-        "capacity": 23,
-        "assigned": 24,
+        "course": "BACH1124",
+        "section": 5,
+        "capacity": 46,
+        "assigned": 47,
         "remaining": -1,
         "over_capacity": true
       },
@@ -1301,10 +1301,10 @@
         "over_capacity": true
       },
       {
-        "course": "FCS1105",
-        "section": 1,
-        "capacity": 40,
-        "assigned": 42,
+        "course": "BACH1121",
+        "section": 12,
+        "capacity": 23,
+        "assigned": 25,
         "remaining": -2,
         "over_capacity": true
       },
@@ -1317,6 +1317,14 @@
         "over_capacity": true
       },
       {
+        "course": "BACH1121",
+        "section": 1,
+        "capacity": 23,
+        "assigned": 26,
+        "remaining": -3,
+        "over_capacity": true
+      },
+      {
         "course": "ARQ1143",
         "section": 1,
         "capacity": 2,
@@ -1325,59 +1333,67 @@
         "over_capacity": true
       },
       {
+        "course": "FCS1105",
+        "section": 1,
+        "capacity": 40,
+        "assigned": 45,
+        "remaining": -5,
+        "over_capacity": true
+      },
+      {
         "course": "BACH1121",
         "section": 9,
         "capacity": 23,
-        "assigned": 29,
-        "remaining": -6,
+        "assigned": 31,
+        "remaining": -8,
         "over_capacity": true
       },
       {
         "course": "BACH1124",
         "section": 1,
         "capacity": 46,
-        "assigned": 92,
-        "remaining": -46,
-        "over_capacity": true
-      },
-      {
-        "course": "QUI1150",
-        "section": 1,
-        "capacity": 40,
-        "assigned": 92,
-        "remaining": -52,
+        "assigned": 95,
+        "remaining": -49,
         "over_capacity": true
       },
       {
         "course": "CES1159",
         "section": 1,
         "capacity": 63,
-        "assigned": 116,
-        "remaining": -53,
+        "assigned": 117,
+        "remaining": -54,
         "over_capacity": true
       },
       {
-        "course": "BACH1123",
+        "course": "QUI1150",
         "section": 1,
-        "capacity": 46,
-        "assigned": 110,
-        "remaining": -64,
+        "capacity": 40,
+        "assigned": 98,
+        "remaining": -58,
         "over_capacity": true
       },
       {
         "course": "BACH1121",
         "section": 2,
         "capacity": 23,
-        "assigned": 92,
-        "remaining": -69,
+        "assigned": 85,
+        "remaining": -62,
+        "over_capacity": true
+      },
+      {
+        "course": "BACH1123",
+        "section": 1,
+        "capacity": 46,
+        "assigned": 114,
+        "remaining": -68,
         "over_capacity": true
       },
       {
         "course": "BACH1122",
         "section": 1,
         "capacity": 46,
-        "assigned": 132,
-        "remaining": -86,
+        "assigned": 124,
+        "remaining": -78,
         "over_capacity": true
       }
     ]

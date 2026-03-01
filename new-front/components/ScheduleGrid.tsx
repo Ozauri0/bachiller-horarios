@@ -192,11 +192,13 @@ export function ScheduleGrid({ schedule, courses = [], header }: Props) {
   // Responsive grid height: ~72vh capped at 660px
   const gridHeight = typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.72, 660) : 560;
 
+  const showInfoBadges = infoBadges.length > 0 && !header;
+
   return (
     <div className="glass rounded-2xl border border-slate-800 flex flex-col">
       {header ? <div className="p-3 border-b border-slate-800 bg-slate-900/40">{header}</div> : null}
       <div className="p-3 space-y-2 flex-1">
-        {infoBadges.length > 0 && (
+        {showInfoBadges && (
           <div className="flex flex-wrap gap-2">
             {infoBadges.map(txt => (
               <span key={txt} className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-200">
