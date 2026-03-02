@@ -76,7 +76,7 @@ export async function saveConfig(payload: { groupConfigs: GroupConfigMap; topone
   });
 }
 
-export async function uploadAlumnos(file: File) {
+export async function uploadAlumnos(file: File): Promise<{ success: boolean; message?: string }> {
   const form = new FormData();
   form.append('file', file);
   return fetchJson('/api/config/alumnos', { method: 'POST', body: form });
