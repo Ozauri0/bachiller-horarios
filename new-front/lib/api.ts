@@ -82,6 +82,12 @@ export async function uploadAlumnos(file: File): Promise<{ success: boolean; mes
   return fetchJson('/api/config/alumnos', { method: 'POST', body: form });
 }
 
+export async function uploadCursosDisponibles(file: File): Promise<{ success: boolean; message?: string; rows?: number; unique_courses?: number }> {
+  const form = new FormData();
+  form.append('file', file);
+  return fetchJson('/api/config/cursos', { method: 'POST', body: form });
+}
+
 export async function fetchExcelData(): Promise<ExcelRow[]> {
   const resp = await fetchJson<{ success: boolean; data?: ExcelRow[] }>('/api/data/all');
   return resp.data || [];

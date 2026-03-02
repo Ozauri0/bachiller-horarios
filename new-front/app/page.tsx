@@ -36,6 +36,7 @@ import {
   runMassiveGeneration,
   saveConfig,
   uploadAlumnos,
+  uploadCursosDisponibles,
   saveExcelData,
   saveMassStudentSchedule
 } from '@/lib/api';
@@ -302,6 +303,18 @@ export default function HomePage() {
     } catch (err: any) {
       console.error(err);
       showBanner(err?.message || 'Error subiendo alumnos', 'error');
+      throw err;
+    }
+  };
+
+  const uploadCursosFile = async (file: File) => {
+    try {
+      const res = await uploadCursosDisponibles(file);
+      const suffix = res?.rows ? ` (${res.rows} filas, ${res.unique_courses ?? 0} cursos)` : '';
+      showBanner((res?.message || 'cursos_disponibles.xlsx actualizado') + suffix, 'success');
+    } catch (err: any) {
+      console.error(err);
+      showBanner(err?.message || 'Error subiendo cursos_disponibles.xlsx', 'error');
       throw err;
     }
   };
@@ -748,6 +761,7 @@ export default function HomePage() {
               saveConfigHandler={saveConfigHandler}
               uploadAlumnos={uploadAlumnosFile}
               replaceConsolidado={replaceConsolidado}
+              uploadCursosDisponibles={uploadCursosFile}
             />
           )}
 

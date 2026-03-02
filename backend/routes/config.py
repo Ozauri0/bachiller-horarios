@@ -1,7 +1,10 @@
 import json
 import os
 from io import BytesIO
+
+import pandas as pd
 from flask import Blueprint, jsonify, request
+
 from backend.utils.constants import CONFIG_DIR, DATA_DIR
 from backend.services.massive import load_alumnos_dataframe
 
@@ -61,4 +64,41 @@ def api_upload_alumnos():
         return jsonify({'success': True, 'message': 'Alumnos cargados', 'total_alumnos': int(total)})
     except Exception as e:
         print(f"Error subiendo alumnos.xlsx: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@config_bp.route('/config/cursos', methods=['POST'])
+def api_upload_cursos_disponibles():
+    try:
+        upload = request.files.get('file') if 'file' in request.files else None
+        if not upload or not upload.filename:
+            return jsonify({'success': False, 'error': 'No se recibió un archivo'}), 400
+
+        content = upload.read()
+        try:
+            df = pd.read_excel(BytesIO(content), header=1)
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Excel inválido: {e}'}), 400
+
+        required_cols = {'COD CURSO', 'SECCION', 'CUPO ASIGNADO'}
+        missing = [c for c in required_cols if c not in df.columns]
+        if missing:
+            return jsonify({'success': False, 'error': f'Faltan columnas requeridas: {", ".join(missing)}'}), 400
+
+        df_valid = df[df['COD CURSO'].notna()]
+        unique_courses = int(df_valid['COD CURSO'].nunique()) if not df_valid.empty else 0
+        total_rows = int(len(df_valid))
+
+        save_path = DATA_DIR / 'cursos_disponibles.xlsx'
+        with open(save_path, 'wb') as f:
+            f.write(content)
+
+        return jsonify({
+            'success': True,
+            'message': 'cursos_disponibles.xlsx actualizado',
+            'rows': total_rows,
+            'unique_courses': unique_courses
+        })
+    except Exception as e:
+        print(f"Error subiendo cursos_disponibles.xlsx: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500

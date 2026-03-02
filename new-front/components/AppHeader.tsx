@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 type TabKey = 'horarios' | 'config' | 'datos' | 'carga';
 
 interface AppHeaderProps {
@@ -7,10 +9,27 @@ interface AppHeaderProps {
   onTabChange: (tab: TabKey) => void;
 }
 
+const tabHref: Record<TabKey, string> = {
+  horarios: '/horarios',
+  config: '/configuracion',
+  datos: '/datos',
+  carga: '/carga-masiva'
+};
+
 function TabButton({ value, label, active, onClick }: { value: TabKey; label: string; active: boolean; onClick: () => void }) {
+  const href = tabHref[value];
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Solo interceptamos click izquierdo sin modificadores para mantener SPA; el resto sigue comportamiento nativo (abrir en nueva pestaña, etc.)
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    onClick();
+  };
+
   return (
-    <button
-      onClick={onClick}
+    <Link
+      href={href}
+      onClick={handleClick}
+      prefetch={false}
       className={
         active
           ? 'px-4 py-1.5 text-sm font-medium rounded-md bg-slate-800 text-white shadow-sm'
@@ -18,7 +37,7 @@ function TabButton({ value, label, active, onClick }: { value: TabKey; label: st
       }
     >
       {label}
-    </button>
+    </Link>
   );
 }
 
@@ -41,9 +60,9 @@ export default function AppHeader({ tab, onTabChange }: AppHeaderProps) {
         <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
           <div className="inline-flex p-1 bg-slate-900 border border-slate-800 rounded-lg shadow-inner gap-1 pointer-events-auto">
             <TabButton value="horarios" label="Horarios" active={tab === 'horarios'} onClick={() => onTabChange('horarios')} />
-            <TabButton value="config" label="Configuración" active={tab === 'config'} onClick={() => onTabChange('config')} />
-            <TabButton value="datos" label="Datos" active={tab === 'datos'} onClick={() => onTabChange('datos')} />
             <TabButton value="carga" label="Carga Masiva" active={tab === 'carga'} onClick={() => onTabChange('carga')} />
+            <TabButton value="datos" label="Datos" active={tab === 'datos'} onClick={() => onTabChange('datos')} />
+            <TabButton value="config" label="Configuración" active={tab === 'config'} onClick={() => onTabChange('config')} />
           </div>
         </div>
       </div>
