@@ -90,7 +90,10 @@ export default function HomePage() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [tab, setTab] = useState<TabKey>(() => sharedState.tab || pathToTab(pathname || '/'));
+  const [tab, setTab] = useState<TabKey>(() => {
+    if (pathname) return pathToTab(pathname);
+    return sharedState.tab || 'horarios';
+  });
   const [banner, setBanner] = useState<BannerData>(null);
 
   const [courses, setCourses] = useState<Course[]>(sharedState.courses);
@@ -281,28 +284,7 @@ export default function HomePage() {
     return () => { stopPolling(); stopDrag(); };
   }, []);
 
-  useEffect(() => {
-    const loadReport = async () => {
-      try {
-        const report = await fetchMassReport();
-        if (report) {
-          setMassSummary(report.summary || null);
-          sharedState.massSummary = report.summary || null;
-          setCapacityReport(report.capacity_report || null);
-          setCapacityStats(report.capacity_stats || null);
-          sharedState.massSummary = report.summary || null;
-          sharedState.capacityStats = report.capacity_stats || null;
-          sharedState.massResults = report.results || [];
-          sharedState.massFiltered = null;
-          setMassResults(report.results || []);
-          setMassHasRun(Boolean(report.summary));
-        }
-      } catch (err) {
-        console.error('No se pudo cargar reporte previo', err);
-      }
-    };
-    loadReport();
-  }, []);
+  // No cargar reportes previos al montar: se muestra el estado vacío hasta que el usuario ejecute una nueva generación.
 
   // ── Handlers ─────────────────────────────────────────
 

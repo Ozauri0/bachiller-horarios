@@ -68,3 +68,4 @@ desktop.ini
 /new-front/.next/
 /new-front/node_modules/
 /data/massive_report.json
+!/new-front/lib/
