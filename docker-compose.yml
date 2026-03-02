@@ -1,14 +1,32 @@
 services:
-  bachiindexer:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    # ports:              # <--- Comentado por seguridad
-    #   - "5000:5000"     # <--- Para pruebas locales si es necesario
-    container_name: bachiindexer-uct  # <--- Nombre fijo para configurar en nginx
+    container_name: horarios-backend
     restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
     networks:
-      - red-internet      # <--- Conectado a la red de Nginx
+      - red-internet
+
+  frontend:
+    build:
+      context: ./new-front
+      dockerfile: Dockerfile
+    container_name: horarios-frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://backend:5000
+      - PORT=3000
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    networks:
+      - red-internet
 
 networks:
   red-internet:

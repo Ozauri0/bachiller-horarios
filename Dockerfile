@@ -1,20 +1,24 @@
-# Usar imagen oficial de Python
-FROM python:3.11-slim
+# Backend Flask + Gunicorn
+FROM python:3.11-slim AS base
 
-# Establecer directorio de trabajo
+ENV PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Copiar archivo de requisitos
-COPY requirements.txt .
+# Dependencias del sistema mínimas para pandas/openpyxl
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	build-essential \
+	libatlas-base-dev \
+	&& rm -rf /var/lib/apt/lists/*
 
-# Instalar dependencias
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt ./
 
-# Copiar el resto de archivos de la aplicación
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
+
 COPY . .
 
-# Exponer puerto 5000 (solo para documentación, no se usa externamente)
 EXPOSE 5000
 
-# Comando para ejecutar la aplicación
-CMD ["python", "app.py"]
+# Servir con gunicorn en lugar del servidor de desarrollo
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]
