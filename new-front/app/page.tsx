@@ -15,6 +15,7 @@ import {
   GroupConfigMap,
   MassResult,
   MassSummary,
+  MassState,
   ScheduleResult,
   ToponConfig,
   ToponConfigMap
@@ -66,6 +67,7 @@ const sharedState = {
   massResults: [] as MassResult[],
   massFiltered: null as MassResult[] | null,
   capacityStats: null as CapacityStats | null,
+  massState: null as MassState | null,
   selectedCourses: [] as CourseOption[],
   schedules: [] as ScheduleResult[],
   scheduleIndex: 0,
@@ -124,7 +126,7 @@ export default function HomePage() {
   const [massHasRun, setMassHasRun] = useState(Boolean(sharedState.massSummary));
   const [massResults, setMassResults] = useState<MassResult[]>(sharedState.massResults);
   const [massFiltered, setMassFiltered] = useState<MassResult[] | null>(sharedState.massFiltered);
-  const [massState, setMassState] = useState<any>(null);
+  const [massState, setMassState] = useState<MassState | null>(sharedState.massState);
   const [massScheduleIndex, setMassScheduleIndex] = useState(0);
   const [massFilterText, setMassFilterText] = useState('');
   const [massFilterStatus, setMassFilterStatus] = useState('');

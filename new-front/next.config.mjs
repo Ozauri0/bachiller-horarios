@@ -3,9 +3,8 @@ const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE |
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    typedRoutes: true
-  },
+  typedRoutes: true,
+  output: 'standalone',
   async rewrites() {
     return [
       {
