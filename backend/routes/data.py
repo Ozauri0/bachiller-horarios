@@ -1,7 +1,6 @@
-import os
 import pandas as pd
 from flask import Blueprint, jsonify, send_file, request, current_app
-from backend.services.data_loader import load_consolidado
+from backend.services.data_loader import load_consolidado, normalize_consolidado
 from backend.utils.constants import DATA_DIR
 
 data_bp = Blueprint('data', __name__)
@@ -81,37 +80,20 @@ def api_import_data():
         if not file.filename.endswith(('.xlsx', '.xls')):
             return jsonify({'success': False, 'error': 'El archivo debe ser un Excel (.xlsx o .xls)'}), 400
 
-        imported_df = pd.read_excel(file)
-
-        has_new_format = 'CODIGO CURSO' in imported_df.columns
-        has_old_format = 'asig_codigo' in imported_df.columns
-
-        if not has_new_format and not has_old_format:
-            return jsonify({
-                'success': False,
-                'error': 'El archivo no tiene el formato correcto. Debe tener columnas: CODIGO CURSO, NOMBRE CURSO, SECCION, GRUPO, DIA, HORA INICIO, HORA FIN, CAMPUS (nuevo formato) o asig_codigo, asig_nombre, psec_codigo, pgru_codigo, sdia_descripcion, sper_hora_ini, sper_hora_fin, camp_campus (formato antiguo)'
-            }), 400
-
-        if has_new_format:
-            required_columns = ['CODIGO CURSO', 'NOMBRE CURSO', 'SECCION', 'GRUPO', 'DIA', 'HORA INICIO', 'HORA FIN', 'CAMPUS']
-        else:
-            required_columns = ['asig_codigo', 'asig_nombre', 'psec_codigo', 'pgru_codigo', 'sdia_descripcion', 'sper_hora_ini', 'sper_hora_fin', 'camp_campus']
-
-        missing_columns = [col for col in required_columns if col not in imported_df.columns]
-        if missing_columns:
-            return jsonify({
-                'success': False,
-                'error': f"Faltan columnas requeridas: {', '.join(missing_columns)}"
-            }), 400
+        raw_df = pd.read_excel(file)
+        try:
+            normalized_df = normalize_consolidado(raw_df)
+        except ValueError as ve:
+            return jsonify({'success': False, 'error': str(ve)}), 400
 
         excel_path = DATA_DIR / 'consolidado.xlsx'
-        imported_df.to_excel(excel_path, index=False)
+        normalized_df.to_excel(excel_path, index=False)
         current_app.config['DATAFRAME'] = load_consolidado()
 
         return jsonify({
             'success': True,
             'message': 'Archivo importado correctamente',
-            'total': len(imported_df)
+            'total': len(normalized_df)
         })
     except Exception as e:
         print(f"Error importando datos: {str(e)}")

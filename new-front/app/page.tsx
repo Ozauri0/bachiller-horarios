@@ -304,6 +304,23 @@ export default function HomePage() {
     }
   };
 
+  const replaceConsolidado = async (file: File) => {
+    try {
+      setExcelLoading(true);
+      await importExcel(file);
+      const rows = await fetchExcelData();
+      setExcelData(rows);
+      sharedState.excelData = rows;
+      showBanner('consolidado.xlsx reemplazado', 'success');
+    } catch (err: any) {
+      console.error(err);
+      showBanner(err?.message || 'Error reemplazando consolidado', 'error');
+      throw err;
+    } finally {
+      setExcelLoading(false);
+    }
+  };
+
   const addCourse = (course: Course) => {
     if (selectedCourses.length >= 6) { showBanner('Máximo 6 cursos permitidos', 'error'); return; }
     if (selectedCourses.find(c => c.code === course.asig_codigo)) { showBanner('Este curso ya está seleccionado', 'info'); return; }
@@ -728,6 +745,7 @@ export default function HomePage() {
               removeToponConfig={removeToponConfig}
               saveConfigHandler={saveConfigHandler}
               uploadAlumnos={uploadAlumnosFile}
+              replaceConsolidado={replaceConsolidado}
             />
           )}
 
