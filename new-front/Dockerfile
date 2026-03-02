@@ -7,6 +7,11 @@ RUN if [ -f package-lock.json ]; then npm ci --legacy-peer-deps; else npm instal
 FROM node:20-alpine AS builder
 WORKDIR /app
 ENV NODE_ENV=production
+# Backend URL baked at build time for rewrites and NEXT_PUBLIC_API_BASE
+ARG BACKEND_URL=http://backend:5000
+ARG NEXT_PUBLIC_API_BASE=http://backend:5000
+ENV BACKEND_URL=${BACKEND_URL}
+ENV NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN mkdir -p public
@@ -17,6 +22,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV NEXT_PUBLIC_API_BASE=http://backend:5000
+ENV BACKEND_URL=http://backend:5000
 # Next standalone output
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
