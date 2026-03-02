@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   BachSchedule,
@@ -283,10 +283,6 @@ export default function HomePage() {
     })();
   }, [tab, excelData.length, excelLoading]);
 
-  useEffect(() => {
-    return () => { stopPolling(); stopDrag(); };
-  }, []);
-
   // No cargar reportes previos al montar: se muestra el estado vacío hasta que el usuario ejecute una nueva generación.
 
   // ── Handlers ─────────────────────────────────────────
@@ -485,9 +481,9 @@ export default function HomePage() {
 
   // ── Mass handlers ────────────────────────────────────
 
-  const stopPolling = () => {
+  const stopPolling = useCallback(() => {
     if (pollerRef.current) { clearInterval(pollerRef.current); pollerRef.current = null; }
-  };
+  }, []);
 
   const pollMassiveState = async () => {
     try {
@@ -615,21 +611,25 @@ export default function HomePage() {
 
   // ── Drag ─────────────────────────────────────────────
 
-  const stopDrag = () => {
-    draggingRef.current = false;
-    if (typeof document !== 'undefined') { document.removeEventListener('mousemove', handleDrag); document.removeEventListener('mouseup', stopDrag); }
-  };
-
-  const handleDrag = (e: MouseEvent) => {
+  const handleDrag = useCallback((e: MouseEvent) => {
     if (!draggingRef.current) return;
     setMassModalPos({ x: e.clientX - dragOffsetRef.current.x, y: e.clientY - dragOffsetRef.current.y });
-  };
+  }, []);
 
-  const startDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+  const stopDrag = useCallback(() => {
+    draggingRef.current = false;
+    if (typeof document !== 'undefined') { document.removeEventListener('mousemove', handleDrag); document.removeEventListener('mouseup', stopDrag); }
+  }, [handleDrag]);
+
+  const startDrag = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault(); draggingRef.current = true;
     dragOffsetRef.current = { x: e.clientX - massModalPos.x, y: e.clientY - massModalPos.y };
     if (typeof document !== 'undefined') { document.addEventListener('mousemove', handleDrag); document.addEventListener('mouseup', stopDrag); }
-  };
+  }, [handleDrag, stopDrag, massModalPos]);
+
+  useEffect(() => {
+    return () => { stopPolling(); stopDrag(); };
+  }, [stopPolling, stopDrag]);
 
   const massRecalc = async () => {
     if (!massSchedule) return;

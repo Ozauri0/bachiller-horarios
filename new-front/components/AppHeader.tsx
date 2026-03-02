@@ -1,6 +1,8 @@
 'use client';
 
+import type React from 'react';
 import Link from 'next/link';
+import type { Route } from 'next';
 
 type TabKey = 'horarios' | 'config' | 'datos' | 'carga';
 
@@ -9,12 +11,12 @@ interface AppHeaderProps {
   onTabChange: (tab: TabKey) => void;
 }
 
-const tabHref: Record<TabKey, string> = {
+const tabHref = {
   horarios: '/horarios',
   config: '/configuracion',
   datos: '/datos',
   carga: '/carga-masiva'
-};
+} satisfies Record<TabKey, Route>;
 
 function TabButton({ value, label, active, onClick }: { value: TabKey; label: string; active: boolean; onClick: () => void }) {
   const href = tabHref[value];

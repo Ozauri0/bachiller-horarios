@@ -40,7 +40,7 @@ function AnimatedNumber({ value, duration = 800 }: { value: number; duration?: n
     return () => { if (frame.current) cancelAnimationFrame(frame.current); };
   }, [value, duration]);
 
-  useEffect(() => { prevValue.current = value; setDisplay(value); }, []);
+  useEffect(() => { prevValue.current = value; setDisplay(value); }, [value]);
 
   return <span>{display.toLocaleString('es-CL')}</span>;
 }
