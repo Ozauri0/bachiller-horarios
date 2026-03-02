@@ -19,11 +19,9 @@ services:
       dockerfile: Dockerfile
       args:
         BACKEND_URL: http://backend:5000
-        NEXT_PUBLIC_API_BASE: http://backend:5000
     container_name: horarios-frontend
     restart: always
     environment:
-      - NEXT_PUBLIC_API_BASE=http://backend:5000
       - BACKEND_URL=http://backend:5000
       - PORT=3000
       - NODE_ENV=production
