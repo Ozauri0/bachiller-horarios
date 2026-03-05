@@ -127,6 +127,26 @@ def get_course_sections(df, course_code):
     return sections.to_dict('records')
 
 
+def normalize_campus(campus):
+    campus = str(campus).upper()
+    if 'ALEMANIA' in campus or 'RIVAS' in campus:
+        return 'ALEMANIA'
+    if 'SAN JUAN PABLO' in campus or 'JUAN PABLO' in campus or 'SJPII' in campus or 'CJP' in campus:
+        return 'SAN_JUAN_PABLO'
+    if 'VIRTUAL' in campus or 'ONLINE' in campus:
+        return 'VIRTUAL'
+    return 'OTRO'
+
+
+def time_to_minutes(time_str):
+    try:
+        time_str = str(time_str).strip()
+        parts = time_str.split(':')
+        return int(parts[0]) * 60 + int(parts[1])
+    except Exception:
+        return 0
+
+
 def get_section_blocks(df, course_code, section, group):
     section_df = df[(df['asig_codigo'] == course_code) &
                     (df['psec_codigo'] == section) &
@@ -138,9 +158,12 @@ def get_section_blocks(df, course_code, section, group):
             'nombre': str(row['asig_nombre']),
             'seccion': int(section),
             'grupo': int(group),
-            'dia': str(row['sdia_descripcion']),
+            'dia': str(row['sdia_descripcion']).strip().upper(),
             'hora_ini': str(row['sper_hora_ini']),
             'hora_fin': str(row['sper_hora_fin']),
-            'campus': str(row['camp_campus'])
+            'campus': str(row['camp_campus']),
+            'hora_ini_min': time_to_minutes(row['sper_hora_ini']),
+            'hora_fin_min': time_to_minutes(row['sper_hora_fin']),
+            'campus_norm': normalize_campus(row['camp_campus'])
         })
     return blocks

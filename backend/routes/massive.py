@@ -450,6 +450,11 @@ def api_mass_rebalance():
             reg = str(r.get('registro', '')).strip()
             if not reg:
                 continue
+                
+            status = r.get('status')
+            if status in ('sin_horario', 'no_valido'):
+                target_registros.add(reg)
+                continue
 
             sections = r.get('sections') or []
             for s in sections:

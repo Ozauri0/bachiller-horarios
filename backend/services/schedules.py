@@ -3,58 +3,34 @@ from backend.utils.constants import MAX_CONFLICT_SCHEDULES
 from backend.services.data_loader import get_course_sections, get_section_blocks
 
 
-def normalize_campus(campus):
-    campus = str(campus).upper()
-    if 'ALEMANIA' in campus or 'RIVAS' in campus:
-        return 'ALEMANIA'
-    if 'SAN JUAN PABLO' in campus or 'JUAN PABLO' in campus or 'SJPII' in campus or 'CJP' in campus:
-        return 'SAN_JUAN_PABLO'
-    if 'VIRTUAL' in campus or 'ONLINE' in campus:
-        return 'VIRTUAL'
-    return 'OTRO'
-
-
-def time_to_minutes(time_str):
-    try:
-        time_str = str(time_str).strip()
-        parts = time_str.split(':')
-        return int(parts[0]) * 60 + int(parts[1])
-    except Exception:
-        return 0
-
-
 def blocks_overlap(block1, block2):
-    day1 = str(block1['dia']).strip().upper()
-    day2 = str(block2['dia']).strip().upper()
-    if day1 != day2:
+    if block1['dia'] != block2['dia']:
         return False
 
-    start1 = time_to_minutes(block1['hora_ini'])
-    end1 = time_to_minutes(block1['hora_fin'])
-    start2 = time_to_minutes(block2['hora_ini'])
-    end2 = time_to_minutes(block2['hora_fin'])
+    start1 = block1['hora_ini_min']
+    end1 = block1['hora_fin_min']
+    start2 = block2['hora_ini_min']
+    end2 = block2['hora_fin_min']
 
     return not (end1 <= start2 or end2 <= start1)
 
 
 def check_travel_time(block1, block2):
-    day1 = str(block1['dia']).strip().upper()
-    day2 = str(block2['dia']).strip().upper()
-    if day1 != day2:
+    if block1['dia'] != block2['dia']:
         return True, None
 
-    campus1 = normalize_campus(block1['campus'])
-    campus2 = normalize_campus(block2['campus'])
+    campus1 = block1['campus_norm']
+    campus2 = block2['campus_norm']
 
     if campus1 == 'VIRTUAL' or campus2 == 'VIRTUAL':
         return True, None
     if campus1 == campus2:
         return True, None
 
-    end1 = time_to_minutes(block1['hora_fin'])
-    start2 = time_to_minutes(block2['hora_ini'])
-    end2 = time_to_minutes(block2['hora_fin'])
-    start1 = time_to_minutes(block1['hora_ini'])
+    end1 = block1['hora_fin_min']
+    start2 = block2['hora_ini_min']
+    end2 = block2['hora_fin_min']
+    start1 = block1['hora_ini_min']
 
     tiempo_requerido = 30
     tipo_topon = 'Topón de campus'
@@ -91,17 +67,17 @@ def is_valid_topon(block1, block2, valid_topones):
 
     for _, topon in valid_topones.items():
         if (int(topon['section']) == int(bach_block['seccion']) and
-            str(topon['dia']) == str(bach_block['dia']) and
+            str(topon['dia']).strip().upper() == bach_block['dia'] and
             str(topon['hora_ini']) == str(bach_block['hora_ini']) and
             str(topon['hora_fin']) == str(bach_block['hora_fin'])):
 
             tapon_type = topon.get('tapon_type', 'completo')
 
             if tapon_type == 'completo':
-                bach_start = time_to_minutes(bach_block['hora_ini'])
-                bach_end = time_to_minutes(bach_block['hora_fin'])
-                other_start = time_to_minutes(other_block['hora_ini'])
-                other_end = time_to_minutes(other_block['hora_fin'])
+                bach_start = bach_block['hora_ini_min']
+                bach_end = bach_block['hora_fin_min']
+                other_start = other_block['hora_ini_min']
+                other_end = other_block['hora_fin_min']
 
                 if other_start <= bach_start and other_end >= bach_end:
                     return True, 'completo', bach_block, other_block
@@ -112,79 +88,7 @@ def is_valid_topon(block1, block2, valid_topones):
     return False, None, None, None
 
 
-def is_valid_combination(sections_blocks, valid_topones=None):
-    all_blocks = []
-    for blocks in sections_blocks:
-        all_blocks.extend(blocks)
-
-    conflicts = []
-    valid_topones_found = []
-
-    bach_topon_tracker = {}
-    for i in range(len(all_blocks)):
-        for j in range(i + 1, len(all_blocks)):
-            if blocks_overlap(all_blocks[i], all_blocks[j]):
-                is_valid, topon_type, bach_block, other_block = is_valid_topon(all_blocks[i], all_blocks[j], valid_topones)
-                if is_valid:
-                    valid_topones_found.append({
-                        'type': 'valid_topon',
-                        'topon_type': topon_type,
-                        'block1': all_blocks[i],
-                        'block2': all_blocks[j],
-                        'message': f"Topón válido ({topon_type}): {all_blocks[i]['curso']} y {all_blocks[j]['curso']} el {all_blocks[i]['dia']}"
-                    })
-                    if bach_block:
-                        tracker_key = (
-                            str(bach_block['curso']),
-                            str(bach_block.get('seccion', '')),
-                            str(bach_block['dia']),
-                            str(bach_block['hora_ini']),
-                            str(bach_block['hora_fin']),
-                            str(bach_block.get('campus', ''))
-                        )
-                        tracker = bach_topon_tracker.setdefault(tracker_key, {
-                            'block': bach_block,
-                            'others': []
-                        })
-                        tracker['others'].append(other_block)
-                else:
-                    conflicts.append({
-                        'type': 'overlap',
-                        'block1': all_blocks[i],
-                        'block2': all_blocks[j],
-                        'message': f"Topón horario: {all_blocks[i]['curso']} y {all_blocks[j]['curso']} el {all_blocks[i]['dia']}"
-                    })
-            else:
-                travel_ok, travel_msg = check_travel_time(all_blocks[i], all_blocks[j])
-                if not travel_ok:
-                    conflicts.append({
-                        'type': 'travel_time',
-                        'block1': all_blocks[i],
-                        'block2': all_blocks[j],
-                        'message': travel_msg
-                    })
-
-    for tracker in bach_topon_tracker.values():
-        if len(tracker['others']) > 1:
-            other_descriptions = [
-                f"{other['curso']} ({other['hora_ini']}-{other['hora_fin']})"
-                for other in tracker['others']
-            ]
-            unique_others = ', '.join(dict.fromkeys(other_descriptions))
-            conflicts.append({
-                'type': 'triple_topon',
-                'block': tracker['block'],
-                'message': f"Triple topón: BACH1121 se cruza con {unique_others} el {tracker['block']['dia']} — no hay tiempo para asistir a todas las clases"
-            })
-
-    return len(conflicts) == 0, conflicts, valid_topones_found
-
-
-def calculate_schedule_score(sections_blocks):
-    all_blocks = []
-    for blocks in sections_blocks:
-        all_blocks.extend(blocks)
-
+def calculate_schedule_score(all_blocks):
     if not all_blocks:
         return 0
 
@@ -193,14 +97,14 @@ def calculate_schedule_score(sections_blocks):
 
     dead_time = 0
     for day in days:
-        day_blocks = sorted([b for b in all_blocks if b['dia'] == day], key=lambda x: time_to_minutes(x['hora_ini']))
+        day_blocks = sorted([b for b in all_blocks if b['dia'] == day], key=lambda x: x['hora_ini_min'])
         for i in range(len(day_blocks) - 1):
-            end_current = time_to_minutes(day_blocks[i]['hora_fin'])
-            start_next = time_to_minutes(day_blocks[i + 1]['hora_ini'])
+            end_current = day_blocks[i]['hora_fin_min']
+            start_next = day_blocks[i + 1]['hora_ini_min']
             dead_time += max(0, start_next - end_current)
 
     dead_time_score = -dead_time
-    avg_start = sum(time_to_minutes(b['hora_ini']) for b in all_blocks) / len(all_blocks)
+    avg_start = sum(b['hora_ini_min'] for b in all_blocks) / len(all_blocks)
     early_score = -avg_start / 10
 
     return days_score + dead_time_score + early_score
@@ -242,7 +146,8 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
                 course_group_configs[course_code][int(section)] = []
             course_group_configs[course_code][int(section)].append([int(g) for g in groups])
 
-    print(f"DEBUG: course_group_configs procesado: {course_group_configs}")
+    if debug:
+        print(f"DEBUG: course_group_configs procesado: {course_group_configs}")
 
     course_sections = []
     for course_code in selected_courses:
@@ -331,9 +236,10 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
     valid_schedules = []
     conflict_schedules = []
     valid_topon_schedules = []
-    conflict_total = 0
+    
+    dfs_state = {'conflict_total': 0}
 
-    def build_schedule_entry(combination, sections_blocks, conflicts, valid_topones_found, is_valid_flag):
+    def build_schedule_entry(combination, all_blocks, conflicts, valid_topones_found, is_valid_flag):
         sections_info = []
         for opt in combination:
             if opt.get('is_combined'):
@@ -351,8 +257,8 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
 
         return {
             'sections': sections_info,
-            'blocks': [block for opt in combination for block in opt['blocks']],
-            'score': float(calculate_schedule_score(sections_blocks)),
+            'blocks': all_blocks,
+            'score': float(calculate_schedule_score(all_blocks)),
             'has_conflicts': not is_valid_flag,
             'has_valid_topones': len(valid_topones_found) > 0,
             'conflicts': [c['message'] for c in conflicts] if conflicts else [],
@@ -361,18 +267,98 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
             'valid_topon_types': list(set(t['topon_type'] for t in valid_topones_found)) if valid_topones_found else []
         }
 
-    for combination in product(*course_sections):
-        sections_blocks = [opt['blocks'] for opt in combination]
-        is_valid, conflicts, valid_topones_found = is_valid_combination(sections_blocks, valid_topones)
+    def dfs(course_index, current_combo, current_blocks, current_conflicts, current_valid_topones, bach_topon_tracker):
+        if course_index == len(course_sections):
+            additional_conflicts = []
+            for tracker in bach_topon_tracker.values():
+                if len(tracker['others']) > 1:
+                    other_descriptions = [
+                        f"{other['curso']} ({other['hora_ini']}-{other['hora_fin']})"
+                        for other in tracker['others']
+                    ]
+                    unique_others = ', '.join(dict.fromkeys(other_descriptions))
+                    additional_conflicts.append({
+                        'type': 'triple_topon',
+                        'block': tracker['block'],
+                        'message': f"Triple topón: BACH1121 se cruza con {unique_others} el {tracker['block']['dia']} — no hay tiempo para asistir a todas las clases"
+                    })
+            
+            final_conflicts = current_conflicts + additional_conflicts
+            is_valid = len(final_conflicts) == 0
+            
+            if is_valid and len(current_valid_topones) > 0:
+                valid_topon_schedules.append(build_schedule_entry(current_combo, current_blocks, final_conflicts, current_valid_topones, True))
+            elif is_valid:
+                valid_schedules.append(build_schedule_entry(current_combo, current_blocks, final_conflicts, current_valid_topones, True))
+            elif include_conflicts:
+                dfs_state['conflict_total'] += 1
+                if len(conflict_schedules) < MAX_CONFLICT_SCHEDULES:
+                    conflict_schedules.append(build_schedule_entry(current_combo, current_blocks, final_conflicts, current_valid_topones, False))
+            
+            return
+            
+        if len(current_conflicts) > 0 and include_conflicts and dfs_state['conflict_total'] >= 5000:
+            return
 
-        if is_valid and len(valid_topones_found) > 0:
-            valid_topon_schedules.append(build_schedule_entry(combination, sections_blocks, conflicts, valid_topones_found, True))
-        elif is_valid:
-            valid_schedules.append(build_schedule_entry(combination, sections_blocks, conflicts, valid_topones_found, True))
-        elif include_conflicts:
-            conflict_total += 1
-            if len(conflict_schedules) < MAX_CONFLICT_SCHEDULES:
-                conflict_schedules.append(build_schedule_entry(combination, sections_blocks, conflicts, valid_topones_found, False))
+        options = course_sections[course_index]
+        for opt in options:
+            new_blocks = opt['blocks']
+            
+            new_conflicts = []
+            new_valid_topones = []
+            new_tracker = {k: {'block': v['block'], 'others': list(v['others'])} for k, v in bach_topon_tracker.items()}
+            
+            has_overlap = False
+            
+            blocks_to_check = [(b1, b2) for b1 in new_blocks for b2 in current_blocks]
+            for i in range(len(new_blocks)):
+                for j in range(i + 1, len(new_blocks)):
+                    blocks_to_check.append((new_blocks[i], new_blocks[j]))
+
+            for b1, b2 in blocks_to_check:
+                if blocks_overlap(b1, b2):
+                    is_valid_tp, topon_type, bach_block, other_block = is_valid_topon(b1, b2, valid_topones)
+                    if is_valid_tp:
+                        new_valid_topones.append({
+                            'type': 'valid_topon',
+                            'topon_type': topon_type,
+                            'block1': b1, 'block2': b2,
+                            'message': f"Topón válido ({topon_type}): {b1['curso']} y {b2['curso']} el {b1['dia']}"
+                        })
+                        if bach_block:
+                            tracker_key = (
+                                str(bach_block['curso']), str(bach_block.get('seccion', '')),
+                                str(bach_block['dia']), str(bach_block['hora_ini']),
+                                str(bach_block['hora_fin']), str(bach_block.get('campus', ''))
+                            )
+                            tracker = new_tracker.setdefault(tracker_key, {'block': bach_block, 'others': []})
+                            tracker['others'].append(other_block)
+                    else:
+                        has_overlap = True
+                        new_conflicts.append({
+                            'type': 'overlap',
+                            'block1': b1, 'block2': b2,
+                            'message': f"Topón horario: {b1['curso']} y {b2['curso']} el {b1['dia']}"
+                        })
+                else:
+                    travel_ok, travel_msg = check_travel_time(b1, b2)
+                    if not travel_ok:
+                        has_overlap = True
+                        new_conflicts.append({
+                            'type': 'travel_time',
+                            'block1': b1, 'block2': b2,
+                            'message': travel_msg
+                        })
+            
+            next_conflicts = current_conflicts + new_conflicts
+            next_valid_topones = current_valid_topones + new_valid_topones
+            
+            if not include_conflicts and len(next_conflicts) > 0:
+                continue
+                
+            dfs(course_index + 1, current_combo + [opt], current_blocks + new_blocks, next_conflicts, next_valid_topones, new_tracker)
+
+    dfs(0, [], [], [], [], {})
 
     valid_schedules.sort(key=lambda x: x['score'], reverse=True)
     valid_topon_schedules.sort(key=lambda x: x['score'], reverse=True)
@@ -386,10 +372,10 @@ def generate_schedules(df, selected_courses, group_configs=None, valid_topones=N
     stats = {
         'total_valid': len(valid_schedules),
         'total_valid_topon': len(valid_topon_schedules),
-        'total_conflicts_found': conflict_total,
+        'total_conflicts_found': dfs_state['conflict_total'],
         'total_conflicts_returned': len(conflict_schedules),
         'conflict_limit': MAX_CONFLICT_SCHEDULES,
-        'conflicts_truncated': conflict_total > len(conflict_schedules)
+        'conflicts_truncated': dfs_state['conflict_total'] > len(conflict_schedules)
     }
 
     return all_schedules, stats
